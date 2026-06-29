@@ -28,7 +28,7 @@ public class PomDependencyExtractor {
 
     public static void main(String[] args) throws IOException, XmlPullParserException {
 
-        String pomPath = "pomReko.xml";
+        String pomPath = "pomFDS.xml";
         Path input = Path.of(pomPath);
         if (!Files.exists(input)) {
             System.err.println("POM not found: " + input.toAbsolutePath());

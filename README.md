@@ -13,7 +13,7 @@ listing its direct dependencies.
 ## Usage
 
 `assis-pom` reads a `pom.xml`, prints a Mermaid diagram to stdout, and writes it
-to `dependencies.mmd`. If no path is given, it looks for `pomReko.xml` in the
+to `dependencies.mmd`. If no path is given, it looks for `pomFDS.xml` in the
 current folder.
 
 The generated `.mmd` can be rendered at the Mermaid Live Editor
@@ -23,10 +23,10 @@ The generated `.mmd` can be rendered at the Mermaid Live Editor
 
 ```mermaid
 flowchart LR
-    project["com.pucrs:construct:0.0.1-SNAPSHOT"]
-    project --> dep0["software.amazon.awssdk:rekognition"]
-    project -->|test| dep1["org.springframework.boot:spring-boot-starter-test"]
-    project -->|runtime| dep2["org.postgresql:postgresql"]
+    project["com.fds:sist-vendas:0.0.1-SNAPSHOT"]
+    project --> dep0["org.springframework.boot:spring-boot-starter-web"]
+    project -->|provided| dep1["org.projectlombok:lombok"]
+    project -->|runtime| dep2["org.springframework.boot:spring-boot-devtools (optional)"]
 ```
 
 ## How it works
