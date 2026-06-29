@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.masmangan</groupId>
+        <artifactId>assis</artifactId>
+        <version>0.9.5-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>assis-pom</artifactId>
+    <name>assis-pom</name>
+    <description>Extract Maven dependencies from a pom.xml and render them as Mermaid</description>
+
+    <properties>
+        <!-- Maven Core library that provides the XPP3 reader (MavenXpp3Reader). -->
+        <maven.model.version>3.9.9</maven.model.version>
+        <!-- Not managed by the parent, so its version is pinned here. -->
+        <maven.shade.plugin.version>3.6.0</maven.shade.plugin.version>
+        <exec.mainClass>io.github.masmangan.assis.pom.PomDependencyExtractor</exec.mainClass>
+    </properties>
+
+    <dependencies>
+        <!-- Provides org.apache.maven.model.io.xpp3.MavenXpp3Reader and the Model object.
+             plexus-utils (XmlPullParser) comes in transitively.
+             junit-jupiter (test) is inherited from the parent POM. -->
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model</artifactId>
+            <version>${maven.model.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Run without packaging:
+                 mvn -q -pl assis-pom -DskipTests exec:java
+                 (version inherited from the parent pluginManagement) -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>${exec.mainClass}</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Coverage report, matching the project's quality setup
+                 (config/executions inherited from the parent pluginManagement). -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+
+            <!-- Self-contained runnable JAR: target/assis-pom-<version>.jar -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven.shade.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${exec.mainClass}</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
