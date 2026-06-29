@@ -27,25 +27,22 @@ import java.util.List;
 public class PomDependencyExtractor {
 
     public static void main(String[] args) throws IOException, XmlPullParserException {
-        // 1. Input POM path (argument, or pomReko.xml in the current folder by default).
-        String pomPath = (args.length > 0) ? args[0] : "pomReko.xml";
+
+        String pomPath = "pomReko.xml";
         Path input = Path.of(pomPath);
         if (!Files.exists(input)) {
             System.err.println("POM not found: " + input.toAbsolutePath());
             System.exit(1);
         }
 
-        // 2. Read the POM with Maven XPP3 -> Model object.
         Model model = readPom(input);
 
-        // 3. Convert the dependencies into Mermaid.
         String mermaid = toMermaid(model);
 
-        // 4. Print to stdout and write a .mmd file.
         System.out.println(mermaid);
-        Path output = Path.of("dependencies.mmd");
-        Files.writeString(output, mermaid, StandardCharsets.UTF_8);
-        System.err.println("Mermaid written to: " + output.toAbsolutePath());
+        //Path output = Path.of("dependencies.mmd");
+        //Files.writeString(output, mermaid, StandardCharsets.UTF_8);
+       // System.err.println("Mermaid written to: " + output.toAbsolutePath());
     }
 
     /**
