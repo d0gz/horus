@@ -1,92 +1,48 @@
-[![SonarCloud analysis](https://github.com/masmangan/assis/actions/workflows/sonarcloud.yml/badge.svg)](https://github.com/masmangan/assis/actions/workflows/sonarcloud.yml)
-[![CodeQL Advanced](https://github.com/masmangan/assis/actions/workflows/codeql.yml/badge.svg)](https://github.com/masmangan/assis/actions/workflows/codeql.yml)
+# HORUS
 
-# ASSIS
-Generate UML diagrams from Java code.
+# assis-pom
 
+Extract Maven dependencies from a `pom.xml` and render them as a Mermaid diagram.
 
-## Getting Started
+Part of the **Horus** project. ASSIS turns Java source into UML (PlantUML);
+`assis-pom` reads a project's `pom.xml` and produces a Mermaid `flowchart`
+listing its direct dependencies.
 
-**Do you have a terminal available?**  
-Check the [Getting Started Guide](./docs/user/assis-gs-bash.md).
-
-> The instructions below were validated with **ASSIS v0.9.4-beta**.
+> Prototype — see *Scope and limitations* below.
 
 ## Usage
 
-### Get the latest version
+`assis-pom` reads a `pom.xml`, prints a Mermaid diagram to stdout, and writes it
+to `dependencies.mmd`. If no path is given, it looks for `pomReko.xml` in the
+current folder.
 
-Download the latest release from:  
-https://github.com/masmangan/assis/releases
+The generated `.mmd` can be rendered at the Mermaid Live Editor
+(<https://mermaid.live>) or embedded in Markdown.
 
-For **v0.9.4-beta**, the released CLI artifact is:
+### Example output
 
-https://github.com/masmangan/assis/releases/download/v0.9.4-beta/assis-cli-0.9.4-beta.jar
-Older releases are kept for reference, but documentation always targets the latest release.
-
-### Run ASSIS
-
-ASSIS scans your source folder for `.java` files and generates a PlantUML class diagram
-(`class-diagram.puml`).
-
-Place the JAR in the project root folder (or any folder of your choice).
-
-Run ASSIS from the command line:
-
-```bash
-java -jar assis-cli-0.9.4-beta.jar
+```mermaid
+flowchart LR
+    project["com.pucrs:construct:0.0.1-SNAPSHOT"]
+    project --> dep0["software.amazon.awssdk:rekognition"]
+    project -->|test| dep1["org.springframework.boot:spring-boot-starter-test"]
+    project -->|runtime| dep2["org.postgresql:postgresql"]
 ```
 
-After execution, a `class-diagram.puml` file will be generated.
+## How it works
 
-The diagram can be edited and rendered using:
-- PlantUML Online Server: https://www.plantuml.com/plantuml/uml/
-- IDE plugins (e.g., Eclipse, VS Code)
+1. Reads `pom.xml` with the Maven XPP3 reader (`MavenXpp3Reader`, from
+   `maven-model`) into a `Model` object.
+2. Reads the project's direct dependencies (`model.getDependencies()`).
+3. Renders a Mermaid `flowchart`: a root node for the project and one node per
+   dependency. `scope` (test/runtime) becomes the edge label; `optional`
+   dependencies are suffixed.
 
-The `.puml` file can also be embedded in Markdown documents.
+## Scope and limitations
 
-## Development
+Reads the **raw** `pom.xml` only. It does **not** yet:
 
-### Build
+- resolve the **effective POM** (parent inheritance, property/version resolution);
+- read `<dependencyManagement>` or imported BOMs;
+- resolve transitive dependencies.
 
-```bash
-mvn -DskipTests package
-```
-
-### Run with JAR (from source build)
-
-```bash
-java -jar assis-cli/target/assis-cli-0.9.4-beta.jar
-```
-
-### Run with Maven
-
-```bash
-mvn -q -DskipTests exec:java -Dexec.mainClass=io.github.masmangan.assis.cli.AssisApp
-```
-
-## ASSIS Classes Overview
-
-![Assis](http://www.plantuml.com/plantuml/proxy?cache=no&fmt=svg&src=https://raw.githubusercontent.com/masmangan/assis/refs/heads/main/assis-core/docs/diagrams/src/class-diagram.puml)
-
-## License
-
-This project is licensed under the MIT License.
-
-## Use of Artificial Intelligence
-
-ASSIS was developed with the assistance of Artificial Intelligence tools used in a
-conversational and reflective role (e.g., architectural discussion, diagram modeling,
-and documentation), rather than as inline code generation or autonomous programming agents.
-
-All final decisions and implementations remain the responsibility of the author.
-
-## References
-
-ASSIS uses existing open-source tools as building blocks:
-
-- **PlantUML** — UML tool  
-  https://plantuml.com
-
-- **JavaParser** — Java source code parser  
-  https://javaparser.org
