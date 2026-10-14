@@ -1,0 +1,39 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.admin:spring-petclinic-admin-server:4.0.1"]
+    parent -.->|gerencia 6 de 8 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 9090"]
+        cfg2["spring-boot-admin.version = 4.0.2"]
+    end
+    project -.-> cfg
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep0["org.springframework.boot:spring-boot-starter"]
+        dep1["org.springframework.cloud:spring-cloud-starter-config"]
+        dep2["org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"]
+        dep3["org.springframework.boot:spring-boot-starter-cache"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep4["de.codecentric:spring-boot-admin-starter-server:${spring-boot-admin.version}"]
+        dep5["de.codecentric:spring-boot-admin-server-ui:${spring-boot-admin.version}"]
+        dep6["org.jolokia:jolokia-core"]
+        dep7["com.github.ben-manes.caffeine:caffeine"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+    project --> dep4
+    project --> dep5
+    project --> dep6
+    project --> dep7
+
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0,dep1,dep2,dep3 cor_utilitario
+    class dep4,dep5,dep6,dep7 cor_nao_classificada

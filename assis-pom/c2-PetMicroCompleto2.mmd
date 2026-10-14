@@ -1,0 +1,65 @@
+flowchart TB
+    pessoa(["Usuario<br/>Consome a interface HTTP da aplicacao"])
+    ext_micrometer_registry_prometheus["Prometheus<br/>[HTTP]<br/>Coleta de metricas"]
+
+    subgraph sys["spring-petclinic-microservices"]
+        app_spring_petclinic_admin_server["spring-petclinic-admin-server<br/>Aplicacao do sistema"]
+        app_spring_petclinic_customers_service["spring-petclinic-customers-service<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        db_mysql_connector_j[("MySQL<br/>[MySQL]<br/>Persistencia relacional; declarado em 4 modulos; instancia unica nao confirmada pelo pom")]
+        db_hsqldb[("HSQLDB (nao confirmado)<br/>[HSQLDB]<br/>Banco em memoria: pode ser embutido no processo, nao ha como confirmar pelo pom; declarado em 4 modulos; instancia unica nao confirmada pelo pom")]
+        app_spring_petclinic_vets_service["spring-petclinic-vets-service<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        app_spring_petclinic_visits_service["spring-petclinic-visits-service<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        app_spring_petclinic_genai_service["spring-petclinic-genai-service<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        app_spring_petclinic_config_server["spring-petclinic-config-server<br/>Aplicacao do sistema"]
+        app_spring_petclinic_discovery_server["spring-petclinic-discovery-server<br/>Aplicacao do sistema"]
+        app_spring_petclinic_api_gateway["spring-petclinic-api-gateway<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+    end
+
+    app_spring_petclinic_admin_server -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_admin_server -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    pessoa -->|"Usa<br/>[HTTPS]"| app_spring_petclinic_customers_service
+    app_spring_petclinic_customers_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_customers_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    app_spring_petclinic_customers_service -->|"Le e grava dados<br/>[JDBC]"| db_mysql_connector_j
+    app_spring_petclinic_customers_service -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+    pessoa -->|"Usa<br/>[HTTPS]"| app_spring_petclinic_vets_service
+    app_spring_petclinic_vets_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_vets_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    app_spring_petclinic_vets_service -->|"Le e grava dados<br/>[JDBC]"| db_mysql_connector_j
+    app_spring_petclinic_vets_service -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+    pessoa -->|"Usa<br/>[HTTPS]"| app_spring_petclinic_visits_service
+    app_spring_petclinic_visits_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_visits_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    app_spring_petclinic_visits_service -->|"Le e grava dados<br/>[JDBC]"| db_mysql_connector_j
+    app_spring_petclinic_visits_service -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+    pessoa -->|"Usa<br/>[HTTPS]"| app_spring_petclinic_genai_service
+    app_spring_petclinic_genai_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_genai_service -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    app_spring_petclinic_genai_service -->|"Le e grava dados<br/>[JDBC]"| db_mysql_connector_j
+    app_spring_petclinic_genai_service -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+    app_spring_petclinic_discovery_server -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_api_gateway -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_config_server
+    app_spring_petclinic_api_gateway -->|"Registra-se em<br/>[HTTP]"| app_spring_petclinic_discovery_server
+    app_spring_petclinic_api_gateway -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app_spring_petclinic_admin_server aplicacao
+    class app_spring_petclinic_customers_service aplicacao
+    class pessoa pessoa
+    class db_mysql_connector_j banco
+    class db_hsqldb incerto
+    class ext_micrometer_registry_prometheus externo
+    class app_spring_petclinic_vets_service aplicacao
+    class app_spring_petclinic_visits_service aplicacao
+    class app_spring_petclinic_genai_service aplicacao
+    class app_spring_petclinic_config_server aplicacao
+    class app_spring_petclinic_discovery_server aplicacao
+    class app_spring_petclinic_api_gateway aplicacao
+
+    %% as chamadas de negocio entre os servicos nao sao declaradas no Maven; informe no catalogo ou aguarde a analise do codigo-fonte
+    %% armazenamentos da mesma tecnologia foram unidos em um so conteiner; o pom nao informa se os modulos usam a mesma instancia (use --bancos=por-modulo para separa-los)

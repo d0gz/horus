@@ -1,0 +1,91 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.genai:spring-petclinic-genai-service:4.0.1"]
+    parent -.->|gerencia 24 de 24 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 8081"]
+        cfg2["spring-ai.version = 2.0.0-M1"]
+    end
+    project -.-> cfg
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep0["org.springframework.ai:spring-ai-starter-model-openai"]
+        dep1["org.springframework.ai:spring-ai-vector-store"]
+        dep3["org.springframework.boot:spring-boot-configuration-processor (optional)"]
+        dep5["org.springframework.boot:spring-boot-starter-cache"]
+        dep8["org.springframework.boot:spring-boot-starter-zipkin"]
+        dep9["org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j"]
+        dep10["org.springframework.cloud:spring-cloud-starter-config"]
+        dep11["org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"]
+        dep12["org.springframework.cloud:spring-cloud-starter-gateway-server-webflux"]
+    end
+
+    subgraph grp_web["Web e API"]
+        dep2["org.springframework.boot:spring-boot-starter-webmvc"]
+    end
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep4["org.springframework.boot:spring-boot-starter-actuator"]
+        dep19["io.micrometer:micrometer-registry-prometheus"]
+    end
+
+    subgraph grp_persistencia["Persistencia"]
+        dep6["org.springframework.boot:spring-boot-starter-data-jpa"]
+        dep18["com.mysql:mysql-connector-j"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep7["org.springframework.boot:spring-boot-starter-test"]
+        dep22["org.junit.jupiter:junit-jupiter-api"]
+        dep23["org.junit.jupiter:junit-jupiter-engine"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep13["javax.cache:cache-api"]
+        dep14["jakarta.xml.bind:jakarta.xml.bind-api"]
+        dep15["com.github.ben-manes.caffeine:caffeine"]
+        dep16["org.jolokia:jolokia-core"]
+        dep17["org.hsqldb:hsqldb"]
+        dep20["de.codecentric:chaos-monkey-spring-boot"]
+        dep21["net.ttddyy.observation:datasource-micrometer-spring-boot"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+    project --> dep4
+    project --> dep5
+    project --> dep6
+    project -->|test| dep7
+    project --> dep8
+    project --> dep9
+    project --> dep10
+    project --> dep11
+    project --> dep12
+    project --> dep13
+    project --> dep14
+    project --> dep15
+    project --> dep16
+    project -->|runtime| dep17
+    project -->|runtime| dep18
+    project --> dep19
+    project --> dep20
+    project --> dep21
+    project -->|test| dep22
+    project -->|test| dep23
+
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_persistencia fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0,dep1,dep3,dep5,dep8,dep9,dep10,dep11,dep12 cor_utilitario
+    class dep2 cor_web
+    class dep4,dep19 cor_observabilidade
+    class dep6,dep18 cor_persistencia
+    class dep7,dep22,dep23 cor_teste
+    class dep13,dep14,dep15,dep16,dep17,dep20,dep21 cor_nao_classificada

@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "descricao": "Tabela de classificacao de dependencias Maven usada pelo Horus para agrupar e colorir os elementos do diagrama. Avaliada de cima para baixo: a primeira regra que casar vence. Dependencias que nao casarem com nenhuma regra recebem a categoria padrao.",
+  "fonte": "Curadoria dos autores a partir da documentacao oficial de cada projeto e das keywords publicadas em libraries.io. Cada regra registra a justificativa no campo nota.",
+  "padrao": "nao-classificada",
+
+  "categorias": [
+    {
+      "id": "web",
+      "rotulo": "Web e API",
+      "cor": { "preenchimento": "#dbeafe", "borda": "#2563eb", "texto": "#1e3a8a" }
+    },
+    {
+      "id": "persistencia",
+      "rotulo": "Persistencia",
+      "cor": { "preenchimento": "#dcfce7", "borda": "#16a34a", "texto": "#14532d" }
+    },
+    {
+      "id": "seguranca",
+      "rotulo": "Seguranca",
+      "cor": { "preenchimento": "#fee2e2", "borda": "#dc2626", "texto": "#7f1d1d" }
+    },
+    {
+      "id": "observabilidade",
+      "rotulo": "Observabilidade",
+      "cor": { "preenchimento": "#ede9fe", "borda": "#7c3aed", "texto": "#4c1d95" }
+    },
+    {
+      "id": "infraestrutura",
+      "rotulo": "Infraestrutura e Nuvem",
+      "cor": { "preenchimento": "#ffedd5", "borda": "#ea580c", "texto": "#7c2d12" }
+    },
+    {
+      "id": "teste",
+      "rotulo": "Teste",
+      "cor": { "preenchimento": "#f1f5f9", "borda": "#64748b", "texto": "#0f172a" }
+    },
+    {
+      "id": "utilitario",
+      "rotulo": "Utilitario e Desenvolvimento",
+      "cor": { "preenchimento": "#fef9c3", "borda": "#ca8a04", "texto": "#713f12" }
+    },
+    {
+      "id": "nao-classificada",
+      "rotulo": "Nao classificada",
+      "cor": { "preenchimento": "#ffffff", "borda": "#94a3b8", "texto": "#334155" }
+    }
+  ],
+
+  "regras": [
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-test",
+      "categoria": "teste",
+      "nota": "Agregador de JUnit, AssertJ e Mockito. Regra antes das demais starter para nao ser capturada por prefixo." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-devtools",
+      "categoria": "utilitario",
+      "nota": "Recarga automatica em desenvolvimento. Nao compoe o sistema em producao." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-security",
+      "categoria": "seguranca",
+      "nota": "Autenticacao e autorizacao." },
+
+    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-oauth2",
+      "categoria": "seguranca",
+      "nota": "Cliente e servidor de recursos OAuth2." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-actuator",
+      "categoria": "observabilidade",
+      "nota": "Endpoints de saude e metricas." },
+
+    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-data",
+      "categoria": "persistencia",
+      "nota": "Familia Spring Data: jpa, jdbc, mongodb, redis." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-validation",
+      "categoria": "web",
+      "nota": "Bean Validation. Classificada como Web por ser usada predominantemente na validacao de payloads de entrada da API. Decisao dos autores, revisar se o caso de estudo mostrar uso diferente." },
+
+    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-web",
+      "categoria": "web",
+      "nota": "Cobre spring-boot-starter-web e spring-boot-starter-webflux." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-thymeleaf",
+      "categoria": "web",
+      "nota": "Renderizacao de paginas no servidor." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-mail",
+      "categoria": "infraestrutura",
+      "nota": "Integracao com servidor de email externo." },
+
+    { "groupId": "org.projectlombok", "artifactId": "lombok",
+      "categoria": "utilitario",
+      "nota": "Geracao de codigo em tempo de compilacao. Escopo provided." },
+
+    { "groupId": "org.mapstruct",
+      "categoria": "utilitario",
+      "nota": "Mapeamento entre objetos em tempo de compilacao." },
+
+    { "groupId": "com.h2database", "artifactId": "h2",
+      "categoria": "persistencia",
+      "nota": "Banco de dados em memoria." },
+
+    { "groupId": "org.postgresql", "artifactId": "postgresql",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do PostgreSQL." },
+
+    { "groupId": "com.mysql",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do MySQL." },
+
+    { "groupId": "org.flywaydb",
+      "categoria": "persistencia",
+      "nota": "Versionamento e migracao de esquema de banco." },
+
+    { "groupId": "org.liquibase",
+      "categoria": "persistencia",
+      "nota": "Versionamento e migracao de esquema de banco." },
+
+    { "groupId": "org.hibernate",
+      "categoria": "persistencia",
+      "nota": "Mapeamento objeto-relacional." },
+
+    { "groupIdPrefixo": "software.amazon.awssdk",
+      "categoria": "infraestrutura",
+      "nota": "SDK oficial da AWS, versao 2." },
+
+    { "groupIdPrefixo": "com.amazonaws",
+      "categoria": "infraestrutura",
+      "nota": "SDK da AWS, versao 1. Usado no caso de estudo imagerec." },
+
+    { "groupIdPrefixo": "com.google.cloud",
+      "categoria": "infraestrutura",
+      "nota": "Bibliotecas do Google Cloud." },
+
+    { "groupId": "org.keycloak",
+      "categoria": "seguranca",
+      "nota": "Servidor de identidade. Aparece no diagrama de referencia do PetClinic." },
+
+    { "groupId": "io.jsonwebtoken",
+      "categoria": "seguranca",
+      "nota": "Emissao e validacao de JWT." },
+
+    { "groupId": "io.micrometer",
+      "categoria": "observabilidade",
+      "nota": "Coleta de metricas." },
+
+    { "groupId": "org.slf4j",
+      "categoria": "observabilidade",
+      "nota": "Fachada de log." },
+
+    { "groupId": "ch.qos.logback",
+      "categoria": "observabilidade",
+      "nota": "Implementacao de log." },
+
+    { "groupIdPrefixo": "org.junit",
+      "categoria": "teste",
+      "nota": "Framework de teste." },
+
+    { "groupId": "org.mockito",
+      "categoria": "teste",
+      "nota": "Objetos dublê para teste." },
+
+    { "groupId": "org.assertj",
+      "categoria": "teste",
+      "nota": "Asserções fluentes." },
+
+    { "groupIdPrefixo": "org.testcontainers",
+      "categoria": "teste",
+      "nota": "Containers efemeros para teste de integracao." },
+
+    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-testcontainers",
+      "categoria": "teste", "nota": "Integracao do Spring Boot com Testcontainers, uso exclusivo em teste." },
+    { "groupIdPrefixo": "com.fasterxml.jackson",
+      "categoria": "utilitario", "nota": "Serializacao e desserializacao JSON." },
+    { "groupIdPrefixo": "io.rest-assured",
+      "categoria": "teste", "nota": "Biblioteca de teste de APIs REST." },
+    { "groupIdPrefixo": "org.springframework.restdocs", "categoria": "teste",
+      "nota": "Documentacao de API gerada a partir de testes." },
+    { "groupIdPrefixo": "com.tngtech.archunit", "categoria": "teste",
+      "nota": "Teste de regras de arquitetura." },
+    { "groupIdPrefixo": "io.github.wimdeblauwe", "categoria": "utilitario",
+      "nota": "Bibliotecas de apoio usadas no caso de estudo PetClinic." },
+
+
+
+    { "groupIdPrefixo": "org.springframework",
+      "categoria": "utilitario",
+      "nota": "Regra final da familia Spring. Captura artefatos do ecossistema que nao casaram com nenhuma regra especifica acima. Deve permanecer sempre por ultimo entre as regras de org.springframework." }
+
+  ]
+}

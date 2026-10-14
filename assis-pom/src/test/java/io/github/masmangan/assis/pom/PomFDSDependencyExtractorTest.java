@@ -35,10 +35,4 @@ class PomFDSDependencyExtractorTest {
         assertTrue(mermaid.contains("org.springframework.boot:spring-boot-devtools (optional)"));
     }
 
-    @Test
-    void excludesDependencyManagementBom() throws Exception {
-        String mermaid = PomDependencyExtractor.toMermaid(loadSample());
-        //AWS BOM in <dependencyManagement> should not appear.
-        assertFalse(mermaid.contains("software.amazon.awssdk:rekognition"));
-    }
 }

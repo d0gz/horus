@@ -1,0 +1,35 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.discovery:spring-petclinic-discovery-server:4.0.1"]
+    parent -.->|gerencia 4 de 4 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 8761"]
+    end
+    project -.-> cfg
+
+    subgraph grp_teste["Teste"]
+        dep0["org.springframework.boot:spring-boot-starter-test"]
+    end
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep1["org.springframework.cloud:spring-cloud-starter-netflix-eureka-server"]
+        dep2["org.springframework.cloud:spring-cloud-starter-config"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep3["org.glassfish.jaxb:jaxb-runtime"]
+    end
+
+    project -->|test| dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0 cor_teste
+    class dep1,dep2 cor_utilitario
+    class dep3 cor_nao_classificada

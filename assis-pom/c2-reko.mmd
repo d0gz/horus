@@ -1,0 +1,23 @@
+flowchart TB
+    ext_rekognition["Rekognition<br/>[SDK]<br/>Servico externo de nuvem"]
+    pessoa(["Usuario<br/>Consome a interface HTTP da aplicacao"])
+
+    subgraph sys["construct"]
+        app["construct<br/>[Java 21, Spring Boot 3.5.5]<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        db_postgresql[("PostgreSQL<br/>[PostgreSQL]<br/>Persistencia relacional")]
+    end
+
+    app -->|"Invoca<br/>[SDK/HTTPS]"| ext_rekognition
+    pessoa -->|"Usa<br/>[HTTPS]"| app
+    app -->|"Le e grava dados<br/>[JDBC]"| db_postgresql
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app aplicacao
+    class ext_rekognition externo
+    class pessoa pessoa
+    class db_postgresql banco

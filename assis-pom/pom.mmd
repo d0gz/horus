@@ -1,0 +1,31 @@
+flowchart LR
+    parent["org.springframework.boot:spring-boot-starter-parent:4.0.1"]
+    project["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    parent -.->|gerencia 0 de 0 versoes| project
+
+    subgraph mod["Modulos"]
+        mod0["spring-petclinic-admin-server"]
+        mod1["spring-petclinic-customers-service"]
+        mod2["spring-petclinic-vets-service"]
+        mod3["spring-petclinic-visits-service"]
+        mod4["spring-petclinic-genai-service"]
+        mod5["spring-petclinic-config-server"]
+        mod6["spring-petclinic-discovery-server"]
+        mod7["spring-petclinic-api-gateway"]
+    end
+    project -.-> mod
+
+    subgraph cfg["Configuracao"]
+        cfg0["chaos-monkey-spring-boot.version = 3.1.0"]
+        cfg1["container.build.extraarg = --load"]
+        cfg2["container.executable = docker"]
+        cfg3["container.platform = linux/amd64"]
+        cfg4["datasource-micrometer.version = 2.0.1"]
+        cfg5["docker.image.dockerfile.dir = ${basedir}"]
+        cfg6["docker.image.exposed.port = 9090"]
+        cfg7["docker.image.prefix = springcommunity"]
+        cfg8["java.version = 17"]
+        cfg9["jolokia-core.version = 1.7.1"]
+        cfg10["spring-cloud.version = 2025.1.0"]
+    end
+    project -.-> cfg

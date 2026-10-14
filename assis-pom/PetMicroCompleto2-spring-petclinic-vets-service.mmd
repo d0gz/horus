@@ -1,0 +1,84 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.vets:spring-petclinic-vets-service:4.0.1"]
+    parent -.->|gerencia 21 de 21 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 8081"]
+    end
+    project -.-> cfg
+
+    subgraph grp_web["Web e API"]
+        dep0["org.springframework.boot:spring-boot-starter-webmvc"]
+        dep1["org.springframework.boot:spring-boot-starter-webmvc-test"]
+    end
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep2["org.springframework.boot:spring-boot-configuration-processor (optional)"]
+        dep4["org.springframework.boot:spring-boot-starter-cache"]
+        dep7["org.springframework.boot:spring-boot-starter-zipkin"]
+        dep8["org.springframework.cloud:spring-cloud-starter-config"]
+        dep9["org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"]
+    end
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep3["org.springframework.boot:spring-boot-starter-actuator"]
+        dep16["io.micrometer:micrometer-registry-prometheus"]
+    end
+
+    subgraph grp_persistencia["Persistencia"]
+        dep5["org.springframework.boot:spring-boot-starter-data-jpa"]
+        dep15["com.mysql:mysql-connector-j"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep6["org.springframework.boot:spring-boot-starter-test"]
+        dep19["org.junit.jupiter:junit-jupiter-api"]
+        dep20["org.junit.jupiter:junit-jupiter-engine"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep10["javax.cache:cache-api"]
+        dep11["jakarta.xml.bind:jakarta.xml.bind-api"]
+        dep12["com.github.ben-manes.caffeine:caffeine"]
+        dep13["org.jolokia:jolokia-core"]
+        dep14["org.hsqldb:hsqldb"]
+        dep17["de.codecentric:chaos-monkey-spring-boot"]
+        dep18["net.ttddyy.observation:datasource-micrometer-spring-boot"]
+    end
+
+    project --> dep0
+    project -->|test| dep1
+    project --> dep2
+    project --> dep3
+    project --> dep4
+    project --> dep5
+    project -->|test| dep6
+    project --> dep7
+    project --> dep8
+    project --> dep9
+    project --> dep10
+    project --> dep11
+    project --> dep12
+    project --> dep13
+    project -->|runtime| dep14
+    project -->|runtime| dep15
+    project --> dep16
+    project --> dep17
+    project --> dep18
+    project -->|test| dep19
+    project -->|test| dep20
+
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_persistencia fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0,dep1 cor_web
+    class dep2,dep4,dep7,dep8,dep9 cor_utilitario
+    class dep3,dep16 cor_observabilidade
+    class dep5,dep15 cor_persistencia
+    class dep6,dep19,dep20 cor_teste
+    class dep10,dep11,dep12,dep13,dep14,dep17,dep18 cor_nao_classificada

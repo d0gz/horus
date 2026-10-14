@@ -1,0 +1,23 @@
+flowchart TB
+    ext_spring_cloud_starter_config["Config Server<br/>[HTTP]<br/>Registro de servicos ou configuracao centralizada"]
+    ext_spring_cloud_starter_netflix_eureka_client["Eureka<br/>[HTTP]<br/>Registro de servicos ou configuracao centralizada"]
+    ext_micrometer_registry_prometheus["Prometheus<br/>[HTTP]<br/>Coleta de metricas"]
+
+    subgraph sys["spring-petclinic-api-gateway"]
+        app["spring-petclinic-api-gateway<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+    end
+
+    app -->|"Registra-se em<br/>[HTTP]"| ext_spring_cloud_starter_config
+    app -->|"Registra-se em<br/>[HTTP]"| ext_spring_cloud_starter_netflix_eureka_client
+    app -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app aplicacao
+    class ext_spring_cloud_starter_config externo
+    class ext_spring_cloud_starter_netflix_eureka_client externo
+    class ext_micrometer_registry_prometheus externo

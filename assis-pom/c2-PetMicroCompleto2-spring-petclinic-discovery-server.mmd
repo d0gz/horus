@@ -1,0 +1,17 @@
+flowchart TB
+    ext_spring_cloud_starter_config["Config Server<br/>[HTTP]<br/>Registro de servicos ou configuracao centralizada"]
+
+    subgraph sys["spring-petclinic-discovery-server"]
+        app["spring-petclinic-discovery-server<br/>Aplicacao do sistema"]
+    end
+
+    app -->|"Registra-se em<br/>[HTTP]"| ext_spring_cloud_starter_config
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app aplicacao
+    class ext_spring_cloud_starter_config externo

@@ -1,0 +1,22 @@
+flowchart TB
+
+    subgraph sys["spring-petclinic-microservices"]
+        app["spring-petclinic-microservices<br/>[Java 17, Spring Boot 4.0.1]<br/>Aplicacao do sistema"]
+    end
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app aplicacao
+
+    %% modulo declarado mas nao lido: spring-petclinic-admin-server; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-customers-service; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-vets-service; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-visits-service; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-genai-service; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-config-server; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-discovery-server; o diagrama nao representa esse conteiner
+    %% modulo declarado mas nao lido: spring-petclinic-api-gateway; o diagrama nao representa esse conteiner

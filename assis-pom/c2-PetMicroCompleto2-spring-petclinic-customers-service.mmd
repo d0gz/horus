@@ -1,0 +1,31 @@
+flowchart TB
+    pessoa(["Usuario<br/>Consome a interface HTTP da aplicacao"])
+    ext_spring_cloud_starter_config["Config Server<br/>[HTTP]<br/>Registro de servicos ou configuracao centralizada"]
+    ext_spring_cloud_starter_netflix_eureka_client["Eureka<br/>[HTTP]<br/>Registro de servicos ou configuracao centralizada"]
+    ext_micrometer_registry_prometheus["Prometheus<br/>[HTTP]<br/>Coleta de metricas"]
+
+    subgraph sys["spring-petclinic-customers-service"]
+        app["spring-petclinic-customers-service<br/>Aplicacao do sistema; expoe endpoints de saude e metricas"]
+        db_mysql_connector_j[("MySQL<br/>[MySQL]<br/>Persistencia relacional")]
+        db_hsqldb[("HSQLDB (nao confirmado)<br/>[HSQLDB]<br/>Banco em memoria: pode ser embutido no processo, nao ha como confirmar pelo pom")]
+    end
+
+    pessoa -->|"Usa<br/>[HTTPS]"| app
+    app -->|"Registra-se em<br/>[HTTP]"| ext_spring_cloud_starter_config
+    app -->|"Registra-se em<br/>[HTTP]"| ext_spring_cloud_starter_netflix_eureka_client
+    app -->|"Le e grava dados<br/>[JDBC]"| db_mysql_connector_j
+    app -->|"Publica metricas em<br/>[HTTP]"| ext_micrometer_registry_prometheus
+
+    classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff
+    classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff
+    classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff
+    classDef incerto fill:#c9d7e4,stroke:#1168bd,color:#0b2e4f,stroke-dasharray: 4 3
+    class app aplicacao
+    class pessoa pessoa
+    class ext_spring_cloud_starter_config externo
+    class ext_spring_cloud_starter_netflix_eureka_client externo
+    class db_mysql_connector_j banco
+    class db_hsqldb incerto
+    class ext_micrometer_registry_prometheus externo

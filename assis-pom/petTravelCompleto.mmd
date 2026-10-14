@@ -1,0 +1,80 @@
+flowchart LR
+    project["com.travelplanner:m1-agente-viagem-java:1.0.0-SNAPSHOT"]
+
+    subgraph cfg["Configuracao"]
+        cfg0["dotenv.version = 3.0.0"]
+        cfg1["jackson.version = 2.17.2"]
+        cfg2["jep.version = 4.2.0"]
+        cfg3["junit.version = 5.10.3"]
+        cfg4["langchain4j.version = 0.35.0"]
+        cfg5["maven.compiler.source = 21"]
+        cfg6["maven.compiler.target = 21"]
+        cfg7["mcp.sdk.version = 0.6.0"]
+        cfg8["okhttp.version = 4.12.0"]
+        cfg9["project.build.sourceEncoding = UTF-8"]
+        cfg10["spring.boot.version = 3.3.4"]
+    end
+    project -.-> cfg
+
+    subgraph bld["Build"]
+        bld0["org.apache.maven.plugins:maven-compiler-plugin"]
+        bld1["org.springframework.boot:spring-boot-maven-plugin"]
+    end
+    project -.-> bld
+
+    subgraph grp_infraestrutura["Infraestrutura e Nuvem"]
+        dep0["dev.langchain4j:langchain4j"]
+        dep1["dev.langchain4j:langchain4j-google-ai-gemini"]
+        dep2["dev.langchain4j:langchain4j-mcp"]
+        dep3["io.modelcontextprotocol.sdk:mcp-core:${mcp.sdk.version}"]
+    end
+
+    subgraph grp_web["Web e API"]
+        dep4["com.squareup.okhttp3:okhttp:${okhttp.version}"]
+    end
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep5["com.fasterxml.jackson.core:jackson-databind:${jackson.version}"]
+        dep6["com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jackson.version}"]
+        dep7["io.github.cdimascio:dotenv-java:${dotenv.version}"]
+        dep8["black.ninja:jep:${jep.version}"]
+        dep9["org.springframework.boot:spring-boot-starter"]
+        dep10["org.projectlombok:lombok"]
+    end
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep11["org.slf4j:slf4j-api"]
+        dep12["ch.qos.logback:logback-classic"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep13["org.junit.jupiter:junit-jupiter:${junit.version}"]
+        dep14["org.springframework.boot:spring-boot-starter-test"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+    project --> dep4
+    project --> dep5
+    project --> dep6
+    project --> dep7
+    project -->|provided| dep8
+    project --> dep9
+    project -->|provided| dep10
+    project --> dep11
+    project --> dep12
+    project -->|test| dep13
+    project -->|test| dep14
+
+    classDef cor_infraestrutura fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    class dep0,dep1,dep2,dep3 cor_infraestrutura
+    class dep4 cor_web
+    class dep5,dep6,dep7,dep8,dep9,dep10 cor_utilitario
+    class dep11,dep12 cor_observabilidade
+    class dep13,dep14 cor_teste

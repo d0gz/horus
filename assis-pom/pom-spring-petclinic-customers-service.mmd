@@ -1,0 +1,76 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.client:spring-petclinic-customers-service:4.0.1"]
+    parent -.->|gerencia 17 de 17 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 8081"]
+    end
+    project -.-> cfg
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep0["org.springframework.boot:spring-boot-starter-actuator"]
+        dep11["io.micrometer:micrometer-registry-prometheus"]
+    end
+
+    subgraph grp_persistencia["Persistencia"]
+        dep1["org.springframework.boot:spring-boot-starter-data-jpa"]
+        dep8["com.mysql:mysql-connector-j"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep2["org.springframework.boot:spring-boot-starter-test"]
+        dep14["org.junit.jupiter:junit-jupiter-api"]
+        dep15["org.junit.jupiter:junit-jupiter-engine"]
+        dep16["org.assertj:assertj-core"]
+    end
+
+    subgraph grp_web["Web e API"]
+        dep3["org.springframework.boot:spring-boot-starter-webmvc"]
+        dep4["org.springframework.boot:spring-boot-starter-webmvc-test"]
+    end
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep5["org.springframework.boot:spring-boot-starter-zipkin"]
+        dep6["org.springframework.cloud:spring-cloud-starter-config"]
+        dep7["org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep9["org.hsqldb:hsqldb"]
+        dep10["org.jolokia:jolokia-core"]
+        dep12["de.codecentric:chaos-monkey-spring-boot"]
+        dep13["net.ttddyy.observation:datasource-micrometer-spring-boot"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project -->|test| dep2
+    project --> dep3
+    project -->|test| dep4
+    project --> dep5
+    project --> dep6
+    project --> dep7
+    project -->|runtime| dep8
+    project -->|runtime| dep9
+    project --> dep10
+    project --> dep11
+    project --> dep12
+    project --> dep13
+    project -->|test| dep14
+    project -->|test| dep15
+    project -->|test| dep16
+
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_persistencia fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0,dep11 cor_observabilidade
+    class dep1,dep8 cor_persistencia
+    class dep2,dep14,dep15,dep16 cor_teste
+    class dep3,dep4 cor_web
+    class dep5,dep6,dep7 cor_utilitario
+    class dep9,dep10,dep12,dep13 cor_nao_classificada

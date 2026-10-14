@@ -1,0 +1,14 @@
+flowchart LR
+    subgraph rt["spring-petclinic-microservices"]
+        mod0["spring-petclinic-microservices (0 deps)"]
+        mod1["spring-petclinic-admin-server (8 deps)"]
+        mod2["spring-petclinic-customers-service (17 deps)"]
+        mod3["spring-petclinic-vets-service (21 deps)"]
+        mod4["spring-petclinic-visits-service (16 deps)"]
+        mod5["spring-petclinic-genai-service (24 deps)"]
+        mod6["spring-petclinic-config-server (5 deps)"]
+        mod7["spring-petclinic-discovery-server (4 deps)"]
+        mod8["spring-petclinic-api-gateway (26 deps)"]
+    end
+
+    %% nenhuma dependencia Maven declarada entre os modulos

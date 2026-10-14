@@ -1,0 +1,10 @@
+flowchart LR
+    project["com.fds:sist-vendas:0.0.1-SNAPSHOT"]
+    project --> dep0["org.springframework.boot:spring-boot-starter-web"]
+    project -->|provided| dep1["org.projectlombok:lombok"]
+    project -->|runtime| dep2["org.springframework.boot:spring-boot-devtools (optional)"]
+    project -->|test| dep3["org.springframework.boot:spring-boot-starter-test"]
+    project --> dep4["org.springframework.boot:spring-boot-starter-data-jpa"]
+    project -->|runtime| dep5["com.h2database:h2"]
+    project -->|runtime| dep6["org.postgresql:postgresql"]
+    project --> dep7["org.springframework.boot:spring-boot-starter-validation"]

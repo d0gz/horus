@@ -1,0 +1,96 @@
+flowchart LR
+    parent["org.springframework.samples:spring-petclinic-microservices:4.0.1"]
+    project["org.springframework.samples.petclinic.api:spring-petclinic-api-gateway:4.0.1"]
+    parent -.->|gerencia 19 de 26 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["docker.image.dockerfile.dir = ${basedir}/../docker"]
+        cfg1["docker.image.exposed.port = 8081"]
+        cfg2["libsass-maven-plugin.version = 0.2.29"]
+        cfg3["squareup-okhttp3.version = 5.0.0-alpha.14"]
+        cfg4["webjars-angular-ui-router.version = 1.0.30"]
+        cfg5["webjars-angular.version = 1.8.3"]
+        cfg6["webjars-bootstrap.version = 5.3.3"]
+        cfg7["webjars-font-awesome.version = 4.7.0"]
+        cfg8["webjars-marked.version = 14.1.2"]
+    end
+    project -.-> cfg
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep0["org.springframework.boot:spring-boot-devtools (optional)"]
+        dep1["org.springframework.boot:spring-boot-configuration-processor (optional)"]
+        dep3["org.springframework.boot:spring-boot-starter-cache"]
+        dep6["org.springframework.boot:spring-boot-starter-zipkin"]
+        dep7["org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j"]
+        dep8["org.springframework.cloud:spring-cloud-starter-config"]
+        dep9["org.springframework.cloud:spring-cloud-starter-netflix-eureka-client"]
+        dep10["org.springframework.cloud:spring-cloud-starter-gateway-server-webflux"]
+    end
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep2["org.springframework.boot:spring-boot-starter-actuator"]
+        dep12["io.micrometer:micrometer-registry-prometheus"]
+        dep14["io.micrometer:context-propagation"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep4["org.springframework.boot:spring-boot-starter-test"]
+        dep22["org.junit.jupiter:junit-jupiter-api"]
+        dep23["org.junit.jupiter:junit-jupiter-engine"]
+    end
+
+    subgraph grp_web["Web e API"]
+        dep5["org.springframework.boot:spring-boot-starter-webflux-test"]
+    end
+
+    subgraph grp_nao_classificada["Nao classificada"]
+        dep11["org.jolokia:jolokia-core"]
+        dep13["io.github.resilience4j:resilience4j-micrometer"]
+        dep15["com.github.ben-manes.caffeine:caffeine"]
+        dep16["org.webjars:angularjs:${webjars-angular.version}"]
+        dep17["org.webjars.npm:font-awesome:${webjars-font-awesome.version}"]
+        dep18["org.webjars:bootstrap:${webjars-bootstrap.version}"]
+        dep19["org.webjars:angular-ui-router:${webjars-angular-ui-router.version}"]
+        dep20["org.webjars:webjars-locator-lite"]
+        dep21["org.webjars.npm:marked:${webjars-marked.version}"]
+        dep24["com.squareup.okhttp3:okhttp:${squareup-okhttp3.version}"]
+        dep25["com.squareup.okhttp3:mockwebserver3-junit5:${squareup-okhttp3.version}"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+    project -->|test| dep4
+    project -->|test| dep5
+    project --> dep6
+    project --> dep7
+    project --> dep8
+    project --> dep9
+    project --> dep10
+    project --> dep11
+    project --> dep12
+    project --> dep13
+    project --> dep14
+    project --> dep15
+    project --> dep16
+    project --> dep17
+    project --> dep18
+    project --> dep19
+    project --> dep20
+    project --> dep21
+    project -->|test| dep22
+    project -->|test| dep23
+    project -->|test| dep24
+    project -->|test| dep25
+
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_nao_classificada fill:#ffffff,stroke:#94a3b8,color:#334155
+    class dep0,dep1,dep3,dep6,dep7,dep8,dep9,dep10 cor_utilitario
+    class dep2,dep12,dep14 cor_observabilidade
+    class dep4,dep22,dep23 cor_teste
+    class dep5 cor_web
+    class dep11,dep13,dep15,dep16,dep17,dep18,dep19,dep20,dep21,dep24,dep25 cor_nao_classificada

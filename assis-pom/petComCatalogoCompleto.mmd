@@ -1,0 +1,94 @@
+flowchart LR
+    parent["org.springframework.boot:spring-boot-starter-parent:3.5.3"]
+    project["com.wimdeblauwe:petclinic:0.0.1-SNAPSHOT"]
+    parent -.->|gerencia 14 de 17 versoes| project
+
+    subgraph cfg["Configuracao"]
+        cfg0["archunit-junit5.version = 1.4.1"]
+        cfg1["asciidoctor-maven-plugin.version = 3.2.0"]
+        cfg2["asciidoctorj-diagram.version = 2.3.2"]
+        cfg3["asciidoctorj-pdf.version = 2.3.19"]
+        cfg4["error-handling-spring-boot-starter.version = 4.6.0"]
+        cfg5["java.version = 21"]
+        cfg6["jpearl.version = 2.0.1"]
+    end
+    project -.-> cfg
+
+    subgraph bld["Build"]
+        bld0["org.codehaus.mojo:build-helper-maven-plugin"]
+        bld1["org.asciidoctor:asciidoctor-maven-plugin"]
+        bld2["org.apache.maven.plugins:maven-resources-plugin"]
+        bld3["org.springframework.boot:spring-boot-maven-plugin"]
+    end
+    project -.-> bld
+
+    subgraph grp_observabilidade["Observabilidade"]
+        dep0["org.springframework.boot:spring-boot-starter-actuator"]
+    end
+
+    subgraph grp_persistencia["Persistencia"]
+        dep1["org.springframework.boot:spring-boot-starter-data-jpa"]
+        dep4["org.flywaydb:flyway-core"]
+        dep5["org.flywaydb:flyway-database-postgresql"]
+        dep9["org.postgresql:postgresql"]
+    end
+
+    subgraph grp_web["Web e API"]
+        dep2["org.springframework.boot:spring-boot-starter-web"]
+        dep3["org.springframework.boot:spring-boot-starter-validation"]
+    end
+
+    subgraph grp_dominio["Dominio"]
+        dep6["io.github.wimdeblauwe:jpearl-core:${jpearl.version}"]
+    end
+
+    subgraph grp_web_e_api["Web e API"]
+        dep7["io.github.wimdeblauwe:error-handling-spring-boot-starter:${error-handling-spring-boot-starter.version}"]
+    end
+
+    subgraph grp_utilitario["Utilitario e Desenvolvimento"]
+        dep8["org.springframework.boot:spring-boot-docker-compose (optional)"]
+    end
+
+    subgraph grp_teste["Teste"]
+        dep10["org.springframework.boot:spring-boot-starter-test"]
+        dep11["org.springframework.boot:spring-boot-testcontainers"]
+        dep12["org.springframework.restdocs:spring-restdocs-mockmvc"]
+        dep13["org.testcontainers:junit-jupiter"]
+        dep14["org.testcontainers:postgresql"]
+        dep15["com.tngtech.archunit:archunit-junit5:${archunit-junit5.version}"]
+        dep16["io.rest-assured:rest-assured"]
+    end
+
+    project --> dep0
+    project --> dep1
+    project --> dep2
+    project --> dep3
+    project --> dep4
+    project --> dep5
+    project --> dep6
+    project --> dep7
+    project -->|runtime| dep8
+    project -->|runtime| dep9
+    project -->|test| dep10
+    project -->|test| dep11
+    project -->|test| dep12
+    project -->|test| dep13
+    project -->|test| dep14
+    project -->|test| dep15
+    project --> dep16
+
+    classDef cor_observabilidade fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef cor_persistencia fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef cor_web fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef cor_dominio fill:#e0f2fe,stroke:#94a3b8,color:#334155
+    classDef cor_web_e_api fill:#ffffff,stroke:#94a3b8,color:#334155
+    classDef cor_utilitario fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef cor_teste fill:#f1f5f9,stroke:#64748b,color:#0f172a
+    class dep0 cor_observabilidade
+    class dep1,dep4,dep5,dep9 cor_persistencia
+    class dep2,dep3 cor_web
+    class dep6 cor_dominio
+    class dep7 cor_web_e_api
+    class dep8 cor_utilitario
+    class dep10,dep11,dep12,dep13,dep14,dep15,dep16 cor_teste
