@@ -17,10 +17,23 @@ public record EntityView(List<Entity> entities) {
 	}
 
 	/**
-	 * A single entity.
-	 *
-	 * @param name simple name of the entity class
+	 * @param name       simple name of the entity class
+	 * @param attributes persistent fields, in declaration order
 	 */
-	public record Entity(String name) {
+	public record Entity(String name, List<Attribute> attributes) {
+
+		public Entity {
+			attributes = List.copyOf(attributes);
+		}
+
+		public Entity(String name) {
+			this(name, List.of());
+		}
+	}
+
+	/**
+	 * @param type Java type as written in source
+	 */
+	public record Attribute(String type, String name, boolean primaryKey) {
 	}
 }

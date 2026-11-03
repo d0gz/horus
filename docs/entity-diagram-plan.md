@@ -28,18 +28,35 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | D3 | Separate output `entity-diagram.mmd`; `class-diagram.puml` untouched | No regression risk on the existing generator. |
 | D4 | Annotations matched by simple name (`Entity`) | Same rule as `DeclaredIndex.stereotypesOf`; covers `jakarta.persistence` and `javax.persistence`, imported or fully qualified. |
 | D5 | Start as simple as possible; every part ships with required tests | Incremental, verifiable steps. |
+| D6 | Entity names are always double-quoted (`"Owner"`) | Valid Mermaid for any name. |
+| D7 | Java names only (class and field names); `@Table`/`@Column` names ignored for now | Simplest. User-selectable naming comes later (see Future). |
+| D8 | Generic types render with `~` instead of `<`/`>` (`Map<String, List<Integer>>` → `Map~String,List~Integer~~`) | Mermaid 11 ER lexer accepts `~…~` in attribute types. Verified against `erDiagram.jison` (mermaid@11.4.1), including nested generics, wildcards and arrays. |
+| D9 | Package qualifiers are stripped from types (`java.time.LocalDate` → `LocalDate`) | A dot outside `~…~` is a Mermaid parse error (verified). |
+| D10 | `EntityView` keeps the Java type exactly as written; Mermaid conversion (D8, D9) happens only in the renderer | The view stays free of Mermaid concerns, as in `assis-pom`. |
 
 ## Roadmap
 
 | Part | Scope | Status |
 |------|-------|--------|
 | 1 | Entity detection: `@Entity` classes → one entity line each | **Done** |
-| 2 | Attributes: fields, Java types, `@Id` → `PK`, `@Column`, `@Transient` excluded, `@Table(name)` | Not started |
+| 2 | Attributes: fields, Java types (generics with `~`), `@Id` → `PK`, transient fields excluded | **Done** |
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, cardinality, `mappedBy` dedupe | Not started |
 | 4 | Wiring: CLI flag, user docs | Not started |
 
 Out of scope for now (deferred, no part assigned): inheritance and value types —
 `@MappedSuperclass`, `@Embeddable`/`@Embedded`, `@Inheritance`.
+
+### Future: user-defined naming
+
+The naming used in the diagram should become a user parameter (e.g. a generator
+option or a CLI flag in Part 4), so the user can choose between:
+
+- **Java names** (current default): `"Owner" { String fullName }`.
+- **Entity alias from `@Table`**: `"Owner"["owners"]`.
+- **Column names from `@Column`**: shown as the attribute comment
+  (`String fullName "full_name"`) or as an extra column.
+
+Until then, `@Table` and `@Column` are ignored.
 
 ---
 
@@ -243,3 +260,109 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - [ ] **Step 5: Full regression** — `mvn -q test` from the root; expect all green, including `GenerateClassDiagramEntitySampleTest` in `assis-core`.
 - [ ] **Step 6: Housekeeping** — `graphify update .`; set Part 1 roadmap row to **Done**.
 - [ ] **Step 7: Commit** — `feat(entity): add GenerateEntityDiagram entry point`
+
+---
+
+## Part 2 — Attributes
+
+### Scope
+
+In:
+- Each entity lists its persistent fields as `type name`, in source declaration order.
+- `@Id` field → `PK` marker.
+- Types rendered per D8 (generics with `~`) and D9 (no package qualifiers); arrays kept (`byte[]`).
+- An entity with no persistent fields still renders as a bare `"Owner"` line.
+
+Excluded fields:
+- `static` fields.
+- `transient` modifier or `@Transient` annotation.
+- Fields annotated `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany` (they become relationships in Part 3).
+
+Out: `@Table`/`@Column` names (D7, Future), `@EmbeddedId`/`@Embedded` (deferred with embeddables), inherited fields (deferred with inheritance), `UK`/`FK` markers.
+
+### Output
+
+```
+erDiagram
+    "Owner" {
+        Long id PK
+        String name
+        List~String~ tags
+    }
+    "Tag"
+```
+
+Attribute lines are indented 8 spaces; the block opens with `"Name" {` and closes with `    }`.
+
+### Components (changes)
+
+1. **`EntityView`**
+   ```java
+   public record Entity(String name, List<Attribute> attributes) {
+       public Entity(String name) { this(name, List.of()); }   // keeps Part 1 callers
+   }
+   public record Attribute(String type, String name, boolean primaryKey) {}
+   ```
+   `type` is the Java type as JavaParser prints it (`Map<String,List<Integer>>`, `java.time.LocalDate`).
+
+2. **`EntityExtractor`** — for each entity, walk its `FieldDeclaration`s in order; skip excluded fields;
+   one `Attribute` per variable (`int a, b;` → two attributes); `primaryKey` = field has `@Id`.
+   Annotations matched by simple name (D4).
+
+3. **`EntityMermaidRenderer`** — renders blocks; converts the type with
+   `static String mermaidType(String javaType)` (package-private):
+   strip qualifiers (`([A-Za-z_$][\w$]*\.)+` → ``), `<`/`>` → `~`, remove spaces after commas.
+
+### Required test cases
+
+Renderer — `EntityMermaidRendererTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| R4 | `Owner` with `Long id` (PK), `String name` | `"erDiagram\n    \"Owner\" {\n        Long id PK\n        String name\n    }\n"` |
+| R5 | `Owner` with attributes + `Tag` without | Owner block, then `    "Tag"\n` |
+| R6 | `mermaidType("List<String>")` | `List~String~` |
+| R7 | `mermaidType("Map<String, List<Integer>>")` | `Map~String,List~Integer~~` |
+| R8 | `mermaidType("java.time.LocalDate")` | `LocalDate` |
+| R9 | `mermaidType("List<java.time.LocalDate>")` | `List~LocalDate~` |
+| R10 | `mermaidType("byte[]")` | `byte[]` |
+
+R1–R3 keep passing (entities without attributes render as before).
+
+Extractor — `EntityExtractorTest`, new sample `samples/attributes/Owner.java`:
+
+```java
+@Entity
+public class Owner {
+    @Id Long id;
+    String name;
+    int a, b;
+    List<String> tags;
+    Map<String, List<Integer>> scores;
+    java.time.LocalDate birth;
+    byte[] photo;
+    static int counter;
+    transient String cache;
+    @Transient String temp;
+    @ManyToOne Owner parent;
+}
+```
+
+| ID | Case | Expected |
+|----|------|----------|
+| E6 | Attribute names in order | `[id, name, a, b, tags, scores, birth, photo]` |
+| E7 | Only `id` is PK | `primaryKey` true for `id`, false for the rest |
+| E8 | Raw types kept | `tags` → `List<String>`, `scores` → `Map<String,List<Integer>>` (JavaParser `asString()` canonical form), `birth` → `java.time.LocalDate`, `photo` → `byte[]` |
+| E9 | Part 1 samples | entities still found; `samples/entity` `Owner` has no attributes |
+
+End-to-end — `GenerateEntityDiagramSampleTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| G7 | `samples/attributes` | file equals the full expected diagram for the sample (all 8 attributes, `Long id PK`, converted types) |
+
+### Done when
+
+- All R/E/G tests pass, plus the full build (`mvn test` from the root).
+- `graphify update .` run.
+- No commits (user commits).

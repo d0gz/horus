@@ -36,6 +36,25 @@ class GenerateEntityDiagramSampleTest {
 	}
 
 	@Test
+	void writesAttributesForSample() throws Exception {
+		String expected = """
+				erDiagram
+				    "Owner" {
+				        Long id PK
+				        String name
+				        int a
+				        int b
+				        List~String~ tags
+				        Map~String,List~Integer~~ scores
+				        LocalDate birth
+				        byte[] photo
+				    }
+				""";
+
+		assertEquals(expected, generateInto(Set.of(sample("samples/attributes")), "out"));
+	}
+
+	@Test
 	void rejectsOutDirThatIsAFile() throws Exception {
 		Path file = Files.createFile(tempDir.resolve("not-a-dir"));
 		Set<Path> roots = Set.of(sample("samples/entity"));
