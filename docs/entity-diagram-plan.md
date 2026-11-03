@@ -40,7 +40,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 |------|-------|--------|
 | 1 | Entity detection: `@Entity` classes → one entity line each | **Done** |
 | 2 | Attributes: fields, Java types (generics with `~`), `@Id` → `PK`, transient fields excluded | **Done** |
-| 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, cardinality, `mappedBy` dedupe | Not started |
+| 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: CLI flag, user docs | Not started |
 
 Out of scope for now (deferred, no part assigned): inheritance and value types —
@@ -360,6 +360,120 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 | ID | Case | Expected |
 |----|------|----------|
 | G7 | `samples/attributes` | file equals the full expected diagram for the sample (all 8 attributes, `Long id PK`, converted types) |
+
+### Done when
+
+- All R/E/G tests pass, plus the full build (`mvn test` from the root).
+- `graphify update .` run.
+- No commits (user commits).
+
+---
+
+## Part 3 — Relationships
+
+### Scope
+
+In:
+- One relationship line per JPA association field of an entity.
+- Fixed cardinality per annotation (decision D11).
+- Bidirectional associations drawn once: the side whose annotation has `mappedBy` is skipped; the owning side draws it, labelled with its field name.
+- Target = the field type; for generic types, the **last** type argument (`List<Pet>` → `Pet`, `Map<String, Pet>` → `Pet`), simple name.
+- A line is drawn only if the target is an entity of the diagram (otherwise Mermaid would invent an empty box).
+
+Out: optionality and constraints (see Known limitations), `@JoinTable`/`@JoinColumn` details, cascade, fetch, identifying vs non-identifying (always solid `--`).
+
+### Known limitations
+
+- **Relational constraints are ignored.** Non-null foreign keys (`optional = false`,
+  `@JoinColumn(nullable = false)`), unique constraints and similar are not read; the
+  cardinality comes only from the annotation kind (D11). E.g. a mandatory `@ManyToOne`
+  still renders as `}o--||`, not as `}|--||`.
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D11 | Cardinality fixed per annotation: `@ManyToOne` → `}o--\|\|`, `@OneToMany` → `\|\|--o{`, `@OneToOne` → `\|\|--\|\|`, `@ManyToMany` → `}o--o{` | Simplest, predictable; optionality deferred. |
+| D12 | Relationship lines come after all entity lines/blocks, ordered by entity (index order) then field declaration order | Deterministic output. |
+| D13 | Label is the owning field name, quoted (`: "owner"`) | Java names (D7). |
+
+Syntax verified against `erDiagram.jison` (mermaid@11.4.1): quoted names on both sides, all four cardinalities, self-reference, lines after attribute blocks.
+
+### Output
+
+```
+erDiagram
+    "Owner" {
+        Long id PK
+    }
+    "Pet" {
+        Long id PK
+    }
+    "Pet" }o--|| "Owner" : "owner"
+```
+
+### Components (changes)
+
+1. **`EntityView`**
+   ```java
+   public record EntityView(List<Entity> entities, List<Relationship> relationships) {
+       public EntityView(List<Entity> entities) { this(entities, List.of()); }   // keeps Part 1–2 callers
+   }
+   public enum Cardinality { MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY }
+   public record Relationship(String from, String to, Cardinality cardinality, String label) {}
+   ```
+
+2. **`EntityExtractor`** — for each entity, for each field with one of the four annotations:
+   skip if the annotation has a `mappedBy` member; resolve the target (last type argument or the
+   type itself, simple name); keep it only if the target is an extracted entity; one `Relationship`
+   per variable. Two passes: entity names first, then relationships.
+
+3. **`EntityMermaidRenderer`** — after the entities, one line per relationship:
+   `    "<from>" <card> "<to>" : "<label>"`.
+
+### Required test cases
+
+Renderer — `EntityMermaidRendererTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| R11 | `Pet → Owner MANY_TO_ONE "owner"` | line `    "Pet" }o--\|\| "Owner" : "owner"` |
+| R12 | `ONE_TO_MANY` | `\|\|--o{` |
+| R13 | `ONE_TO_ONE` | `\|\|--\|\|` |
+| R14 | `MANY_TO_MANY` | `}o--o{` |
+| R15 | Entities with blocks + relationships | relationship lines come after all entities |
+
+R1–R10 keep passing (no relationships → unchanged output).
+
+Extractor — `EntityExtractorTest`, new sample `samples/relationships/` (one class per file, package `samples.relationships`):
+
+```java
+@Entity class Owner   { @Id Long id; @OneToMany(mappedBy = "owner") List<Pet> pets; }
+@Entity class Pet     { @Id Long id; @ManyToOne Owner owner; @ManyToOne Pet mother; }
+@Entity class Vet     { @Id Long id; @ManyToMany Set<Specialty> specialties; }
+@Entity class Specialty { @Id Long id; }
+@Entity class User    { @Id Long id; @OneToOne Profile profile; }
+@Entity class Profile { @Id Long id; @OneToOne(mappedBy = "profile") User user; }
+@Entity class Visit   { @Id Long id; @OneToMany List<Pet> pets; @ManyToOne Address address; }
+class Address { }     // not an entity
+```
+
+| ID | Case | Expected |
+|----|------|----------|
+| E10 | Bidirectional `@OneToMany(mappedBy)`/`@ManyToOne` | only `Pet → Owner MANY_TO_ONE "owner"`; nothing from `Owner.pets` |
+| E11 | Collection element as target | `Vet → Specialty MANY_TO_MANY "specialties"` |
+| E12 | `@OneToOne` with `mappedBy` on the other side | only `User → Profile ONE_TO_ONE "profile"` |
+| E13 | Unidirectional `@OneToMany` | `Visit → Pet ONE_TO_MANY "pets"` |
+| E14 | Target is not an entity | no relationship for `Visit.address` |
+| E15 | Self-reference | `Pet → Pet MANY_TO_ONE "mother"` |
+| E16 | Full list, order (D12) | exactly `[Pet→Owner owner, Pet→Pet mother, User→Profile profile, Vet→Specialty specialties, Visit→Pet pets]` |
+
+End-to-end — `GenerateEntityDiagramSampleTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| G7 (updated) | `samples/attributes` now also ends with `    "Owner" }o--\|\| "Owner" : "parent"` (its `@ManyToOne Owner parent` is a self-reference) | |
+| G8 | `samples/relationships` | file equals the full expected diagram: 7 entity blocks (`Long id PK` each), then the 5 lines of E16 |
 
 ### Done when
 

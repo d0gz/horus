@@ -8,12 +8,28 @@ import java.util.List;
  *
  * The extractor fills an  EntityView; the renderer consumes it.
  *
- * @param entities entities in deterministic order
+ * @param entities      entities in deterministic order
+ * @param relationships relationships in entity, then field order
  */
-public record EntityView(List<Entity> entities) {
+public record EntityView(List<Entity> entities, List<Relationship> relationships) {
 
 	public EntityView {
 		entities = List.copyOf(entities);
+		relationships = List.copyOf(relationships);
+	}
+
+	public EntityView(List<Entity> entities) {
+		this(entities, List.of());
+	}
+
+	public enum Cardinality {
+		MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY
+	}
+
+	/**
+	 * @param label owning field name
+	 */
+	public record Relationship(String from, String to, Cardinality cardinality, String label) {
 	}
 
 	/**

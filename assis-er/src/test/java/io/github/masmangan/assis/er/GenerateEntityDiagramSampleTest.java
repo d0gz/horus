@@ -49,9 +49,28 @@ class GenerateEntityDiagramSampleTest {
 				        LocalDate birth
 				        byte[] photo
 				    }
+				    "Owner" }o--|| "Owner" : "parent"
 				""";
 
 		assertEquals(expected, generateInto(Set.of(sample("samples/attributes")), "out"));
+	}
+
+	@Test
+	void writesRelationshipsForSample() throws Exception {
+		String block = "    \"%s\" {\n        Long id PK\n    }\n";
+		StringBuilder expected = new StringBuilder("erDiagram\n");
+		for (String e : List.of("Owner", "Pet", "Profile", "Specialty", "User", "Vet", "Visit")) {
+			expected.append(block.formatted(e));
+		}
+		expected.append("""
+				    "Pet" }o--|| "Owner" : "owner"
+				    "Pet" }o--|| "Pet" : "mother"
+				    "User" ||--|| "Profile" : "profile"
+				    "Vet" }o--o{ "Specialty" : "specialties"
+				    "Visit" ||--o{ "Pet" : "pets"
+				""");
+
+		assertEquals(expected.toString(), generateInto(Set.of(sample("samples/relationships")), "out"));
 	}
 
 	@Test

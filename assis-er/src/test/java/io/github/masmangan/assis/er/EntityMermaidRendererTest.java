@@ -1,6 +1,7 @@
 package io.github.masmangan.assis.er;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -69,5 +70,41 @@ class EntityMermaidRendererTest {
 	@Test
 	void keepsArrays() {
 		assertEquals("byte[]", EntityMermaidRenderer.mermaidType("byte[]"));
+	}
+
+	private static String renderRelationship(EntityView.Cardinality cardinality) {
+		EntityView view = new EntityView(List.of(new EntityView.Entity("Pet"), new EntityView.Entity("Owner")),
+				List.of(new EntityView.Relationship("Pet", "Owner", cardinality, "owner")));
+		return EntityMermaidRenderer.render(view);
+	}
+
+	@Test
+	void rendersManyToOne() {
+		assertEquals("erDiagram\n    \"Pet\"\n    \"Owner\"\n    \"Pet\" }o--|| \"Owner\" : \"owner\"\n",
+				renderRelationship(EntityView.Cardinality.MANY_TO_ONE));
+	}
+
+	@Test
+	void rendersOneToMany() {
+		assertTrue(renderRelationship(EntityView.Cardinality.ONE_TO_MANY).contains("\"Pet\" ||--o{ \"Owner\""));
+	}
+
+	@Test
+	void rendersOneToOne() {
+		assertTrue(renderRelationship(EntityView.Cardinality.ONE_TO_ONE).contains("\"Pet\" ||--|| \"Owner\""));
+	}
+
+	@Test
+	void rendersManyToMany() {
+		assertTrue(renderRelationship(EntityView.Cardinality.MANY_TO_MANY).contains("\"Pet\" }o--o{ \"Owner\""));
+	}
+
+	@Test
+	void rendersRelationshipsAfterEntityBlocks() {
+		EntityView view = new EntityView(List.of(owner(), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Pet", "Owner", EntityView.Cardinality.MANY_TO_ONE, "owner")));
+
+		assertEquals("erDiagram\n    \"Owner\" {\n        Long id PK\n        String name\n    }\n    \"Pet\"\n"
+				+ "    \"Pet\" }o--|| \"Owner\" : \"owner\"\n", EntityMermaidRenderer.render(view));
 	}
 }

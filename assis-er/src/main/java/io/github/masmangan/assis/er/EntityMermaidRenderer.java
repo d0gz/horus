@@ -34,7 +34,20 @@ public final class EntityMermaidRenderer {
 			}
 			sb.append(INDENT).append("}\n");
 		}
+		for (EntityView.Relationship r : view.relationships()) {
+			sb.append(INDENT).append('"').append(r.from()).append("\" ").append(symbol(r.cardinality()))
+					.append(" \"").append(r.to()).append("\" : \"").append(r.label()).append("\"\n");
+		}
 		return sb.toString();
+	}
+
+	private static String symbol(EntityView.Cardinality cardinality) {
+		return switch (cardinality) {
+		case MANY_TO_ONE -> "}o--||";
+		case ONE_TO_MANY -> "||--o{";
+		case ONE_TO_ONE -> "||--||";
+		case MANY_TO_MANY -> "}o--o{";
+		};
 	}
 
 	/** Mermaid rejects dots and angle brackets in attribute types outside ~...~. */

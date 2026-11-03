@@ -1,6 +1,7 @@
 package io.github.masmangan.assis.er;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URL;
 import java.nio.file.Path;
@@ -63,6 +64,54 @@ class EntityExtractorTest {
 	@Test
 	void entityWithoutFieldsHasNoAttributes() throws Exception {
 		assertEquals(List.of(), extractFrom("samples/entity").entities().get(0).attributes());
+	}
+
+	private List<String> relationships() throws Exception {
+		return extractFrom("samples/relationships").relationships().stream()
+				.map(r -> r.from() + "->" + r.to() + " " + r.cardinality() + " " + r.label()).toList();
+	}
+
+	@Test
+	void bidirectionalManyToOneDrawnOnceFromOwningSide() throws Exception {
+		List<String> rels = relationships();
+
+		assertTrue(rels.contains("Pet->Owner MANY_TO_ONE owner"), rels.toString());
+		assertTrue(rels.stream().noneMatch(r -> r.startsWith("Owner->")), rels.toString());
+	}
+
+	@Test
+	void usesCollectionElementAsTarget() throws Exception {
+		assertTrue(relationships().contains("Vet->Specialty MANY_TO_MANY specialties"));
+	}
+
+	@Test
+	void oneToOneMappedBySideIsSkipped() throws Exception {
+		List<String> rels = relationships();
+
+		assertTrue(rels.contains("User->Profile ONE_TO_ONE profile"), rels.toString());
+		assertTrue(rels.stream().noneMatch(r -> r.startsWith("Profile->")), rels.toString());
+	}
+
+	@Test
+	void unidirectionalOneToMany() throws Exception {
+		assertTrue(relationships().contains("Visit->Pet ONE_TO_MANY pets"));
+	}
+
+	@Test
+	void skipsTargetThatIsNotAnEntity() throws Exception {
+		assertTrue(relationships().stream().noneMatch(r -> r.contains("Address")));
+	}
+
+	@Test
+	void selfReference() throws Exception {
+		assertTrue(relationships().contains("Pet->Pet MANY_TO_ONE mother"));
+	}
+
+	@Test
+	void relationshipsInEntityThenFieldOrder() throws Exception {
+		assertEquals(List.of("Pet->Owner MANY_TO_ONE owner", "Pet->Pet MANY_TO_ONE mother",
+				"User->Profile ONE_TO_ONE profile", "Vet->Specialty MANY_TO_MANY specialties",
+				"Visit->Pet ONE_TO_MANY pets"), relationships());
 	}
 
 	@Test
