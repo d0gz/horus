@@ -76,10 +76,10 @@ Package: `io.github.masmangan.assis.er`
    Pure function. Output:
    ```
    erDiagram
-       Owner
-       Pet
+       "Owner"
+       "Pet"
    ```
-   Empty view → `erDiagram\n`. Indent = 4 spaces, `\n` line endings.
+   Entity names are always double-quoted. Empty view → `erDiagram\n`. Indent = 4 spaces, `\n` line endings.
 
 4. **`GenerateEntityDiagram`** (same package) —
    `public static void generate(Set<Path> sourceRoots, Path outDir)`.
@@ -110,7 +110,7 @@ Renderer — `EntityMermaidRendererTest` (pure, no I/O):
 | ID | Case | Expected |
 |----|------|----------|
 | R1 | Empty view | `"erDiagram\n"` |
-| R2 | One entity `Owner` | `"erDiagram\n    Owner\n"` |
+| R2 | One entity `Owner` | `"erDiagram\n    \"Owner\"\n"` |
 | R3 | Entities `Owner`, `Pet` | Both lines, in view order |
 
 Extractor — `EntityExtractorTest` (parses sample sources):
@@ -127,7 +127,7 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 
 | ID | Case | Expected |
 |----|------|----------|
-| G1 | `samples/entity` → `generate(...)` | `entity-diagram.mmd` exists, content `"erDiagram\n    Owner\n"` |
+| G1 | `samples/entity` → `generate(...)` | `entity-diagram.mmd` exists, content `"erDiagram\n    \"Owner\"\n"` |
 | G2 | `outDir` is an existing file | `IllegalArgumentException` |
 | G3 | `null` `sourceRoots` or `outDir` | `NullPointerException` |
 | G4 | Run twice on same input | Identical output (determinism) |
@@ -184,8 +184,8 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 
 - [ ] **Step 1: Write failing tests**
   - `rendersEmptyView` (R1): `assertEquals("erDiagram\n", render(new EntityView(List.of())))`
-  - `rendersSingleEntity` (R2): `Owner` → `"erDiagram\n    Owner\n"`
-  - `rendersEntitiesInViewOrder` (R3): `Owner`, `Pet` → `"erDiagram\n    Owner\n    Pet\n"`
+  - `rendersSingleEntity` (R2): `Owner` → `"erDiagram\n    \"Owner\"\n"`
+  - `rendersEntitiesInViewOrder` (R3): `Owner`, `Pet` → `"erDiagram\n    \"Owner\"\n    \"Pet\"\n"`
 - [ ] **Step 2: Run, expect compile failure** — `mvn -q -pl assis-er -am test -Dsurefire.failIfNoSpecifiedTests=false -Dtest=EntityMermaidRendererTest`
 - [ ] **Step 3: Implement** `EntityView` and `render` (StringBuilder: header line, then one indented line per entity).
 - [ ] **Step 4: Run, expect PASS** — same command.
@@ -231,11 +231,11 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - Produces: `public class GenerateEntityDiagram { public static void generate(Set<Path> sourceRoots, Path outDir) throws IOException }` (private constructor). Same validation/logging as `GenerateClassDiagram.generate`; no `Dashboard` printing.
 
 - [ ] **Step 1: Write failing tests** (use `@TempDir` for output; resolve sample roots from the classpath as in `EntityExtractorTest`):
-  - `writesEntityDiagramForSample` (G1): `samples/entity` → `outDir/entity-diagram.mmd` equals `"erDiagram\n    Owner\n"`
+  - `writesEntityDiagramForSample` (G1): `samples/entity` → `outDir/entity-diagram.mmd` equals `"erDiagram\n    \"Owner\"\n"`
   - `rejectsOutDirThatIsAFile` (G2): `outDir` = an existing regular file → `assertThrows(IllegalArgumentException.class, …)`
   - `rejectsNullArguments` (G3): `generate(null, dir)` and `generate(Set.of(root), null)` → `NullPointerException`
   - `isDeterministic` (G4): two runs into two dirs → equal contents
-  - `includesEntitiesFromAllSourceRoots` (G5): roots `samples/entity` + `samples/entityjavax` → content contains `"    Owner\n"` and `"    Customer\n"`, and two runs with the `Set` built in different orders produce equal output
+  - `includesEntitiesFromAllSourceRoots` (G5): roots `samples/entity` + `samples/entityjavax` → content contains `"    \"Owner\"\n"` and `"    \"Customer\"\n"`, and two runs with the `Set` built in different orders produce equal output
   - `writesHeaderOnlyForEmptySourceRoot` (G6): empty temp dir as root → `"erDiagram\n"`
 - [ ] **Step 2: Run, expect compile failure** — `mvn -q -pl assis-er -am test -Dsurefire.failIfNoSpecifiedTests=false -Dtest=GenerateEntityDiagramSampleTest`
 - [ ] **Step 3: Implement `generate`** — validate, `createDirectories`, autoscan, fill index, extract, render, `Files.writeString(outDir.resolve("entity-diagram.mmd"), mermaid, UTF_8)`.

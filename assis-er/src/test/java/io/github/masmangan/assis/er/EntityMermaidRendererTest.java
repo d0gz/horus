@@ -17,13 +17,13 @@ class EntityMermaidRendererTest {
 	void rendersSingleEntity() {
 		EntityView view = new EntityView(List.of(new EntityView.Entity("Owner")));
 
-		assertEquals("erDiagram\n    Owner\n", EntityMermaidRenderer.render(view));
+		assertEquals("erDiagram\n    \"Owner\"\n", EntityMermaidRenderer.render(view));
 	}
 
 	@Test
 	void rendersEntitiesInViewOrder() {
 		EntityView view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")));
 
-		assertEquals("erDiagram\n    Owner\n    Pet\n", EntityMermaidRenderer.render(view));
+		assertEquals("erDiagram\n    \"Owner\"\n    \"Pet\"\n", EntityMermaidRenderer.render(view));
 	}
 }

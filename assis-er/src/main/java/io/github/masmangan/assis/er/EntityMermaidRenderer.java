@@ -19,7 +19,7 @@ public final class EntityMermaidRenderer {
 	public static String render(EntityView view) {
 		StringBuilder sb = new StringBuilder("erDiagram\n");
 		for (EntityView.Entity entity : view.entities()) {
-			sb.append(INDENT).append(entity.name()).append('\n');
+			sb.append(INDENT).append('"').append(entity.name()).append("\"\n");
 		}
 		return sb.toString();
 	}

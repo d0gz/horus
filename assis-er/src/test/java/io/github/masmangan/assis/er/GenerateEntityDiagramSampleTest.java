@@ -32,7 +32,7 @@ class GenerateEntityDiagramSampleTest {
 
 	@Test
 	void writesEntityDiagramForSample() throws Exception {
-		assertEquals("erDiagram\n    Owner\n", generateInto(Set.of(sample("samples/entity")), "out"));
+		assertEquals("erDiagram\n    \"Owner\"\n", generateInto(Set.of(sample("samples/entity")), "out"));
 	}
 
 	@Test
@@ -66,8 +66,8 @@ class GenerateEntityDiagramSampleTest {
 		String forward = generateInto(new LinkedHashSet<>(List.of(entity, javax)), "forward");
 		String reverse = generateInto(new LinkedHashSet<>(List.of(javax, entity)), "reverse");
 
-		assertTrue(forward.contains("    Owner\n"), forward);
-		assertTrue(forward.contains("    Customer\n"), forward);
+		assertTrue(forward.contains("    \"Owner\"\n"), forward);
+		assertTrue(forward.contains("    \"Customer\"\n"), forward);
 		assertEquals(forward, reverse);
 	}
 
