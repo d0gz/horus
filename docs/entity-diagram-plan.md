@@ -33,7 +33,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 
 | Part | Scope | Status |
 |------|-------|--------|
-| 1 | Entity detection: `@Entity` classes → one entity line each | **Spec approved — planning** |
+| 1 | Entity detection: `@Entity` classes → one entity line each | **Done** |
 | 2 | Attributes: fields, Java types, `@Id` → `PK`, `@Column`, `@Transient` excluded, `@Table(name)` | Not started |
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, cardinality, `mappedBy` dedupe | Not started |
 | 4 | Wiring: CLI flag, user docs | Not started |
