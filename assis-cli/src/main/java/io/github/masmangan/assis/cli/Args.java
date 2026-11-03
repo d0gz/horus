@@ -38,6 +38,10 @@ final class CliArgs {
 	 */
 	final Path outDir;
 
+	final boolean classDiagram;
+
+	final boolean erDiagram;
+
 	/**
 	 *
 	 * @param mode
@@ -45,9 +49,15 @@ final class CliArgs {
 	 * @param outDir
 	 */
 	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir) {
+		this(mode, sourceRoots, outDir, true, true);
+	}
+
+	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir, boolean classDiagram, boolean erDiagram) {
 		this.mode = mode;
 		this.sourceRoots = sourceRoots;
 		this.outDir = outDir;
+		this.classDiagram = classDiagram;
+		this.erDiagram = erDiagram;
 	}
 
 	/**
@@ -63,6 +73,8 @@ final class CliArgs {
 		Set<Path> srcRoots = new LinkedHashSet<>();
 
 		Path outDir = null;
+		boolean classDiagram = false;
+		boolean erDiagram = false;
 
 		boolean skip = false;
 		for (int i = 0; i < args.length; i++) {
@@ -86,12 +98,19 @@ final class CliArgs {
 			} else if (isOutputDirectory(a)) {
 				skip = true;
 				outDir = parseOutputDirectory(args, outDir, i, a);
+			} else if ("--class".equals(a)) {
+				classDiagram = true;
+			} else if ("--er".equals(a)) {
+				erDiagram = true;
 			} else {
 				throw new IllegalArgumentException("Unknown option: " + a + "\n\n" + usage);
 			}
 		}
 
-		return new CliArgs(Mode.RUN, srcRoots, outDir);
+		if (!classDiagram && !erDiagram) {
+			return new CliArgs(Mode.RUN, srcRoots, outDir, true, true);
+		}
+		return new CliArgs(Mode.RUN, srcRoots, outDir, classDiagram, erDiagram);
 	}
 
 	/**
@@ -210,7 +229,11 @@ final class CliArgs {
 			  --source-path <path>, -sourcepath <path>
 			        Specify where to find input source files
 			  -d <directory>
-			        Specify where to place generated .puml files
+			        Specify where to place generated diagram files
+			  --class
+			        Generate only the class diagram (class-diagram.puml)
+			  --er
+			        Generate only the entity diagram (entity-diagram.mmd)
 
 			Defaults:
 
@@ -221,6 +244,8 @@ final class CliArgs {
 
 			  Generation defaults to:
 			      -d docs/diagrams/src/
+
+			  Without --class or --er, both diagrams are generated.
 			""";
 
 	/**

@@ -8,6 +8,7 @@ package io.github.masmangan.assis.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +88,7 @@ class AssisAppTest {
 		} finally {
 			try {
 				Files.deleteIfExists(pumlPath);
+				Files.deleteIfExists(expectedOut.resolve(ER_FILE));
 			} catch (Exception ignored) {
 				throw new IllegalStateException("Clean up failed.");
 			}
@@ -113,6 +115,7 @@ class AssisAppTest {
 		} finally {
 			try {
 				Files.deleteIfExists(pumlPath);
+				Files.deleteIfExists(expectedOut.resolve(ER_FILE));
 			} catch (Exception ignored) {
 				throw new IllegalStateException("Clean up failed.");
 			}
@@ -193,6 +196,59 @@ class AssisAppTest {
 			assertTrue(logs.any(Level.INFO, "ASSIS"),
 					"Expected version output to mention ASSIS (logged at CONFIG).\nLogs:\n" + logs.dump());
 		}
+	}
+
+	private static final String ER_FILE = "entity-diagram.mmd";
+
+	private Path runOnHello(String... flags) throws Exception {
+		Path src = tempDir.resolve("src");
+		Files.createDirectories(src);
+		Files.writeString(src.resolve("Hello.java"), "public class Hello {\n}\n", UTF_8);
+		Path out = tempDir.resolve("out");
+
+		String[] base = { "-sourcepath", src.toString(), "-d", out.toString() };
+		String[] args = java.util.stream.Stream.concat(java.util.Arrays.stream(base), java.util.Arrays.stream(flags))
+				.toArray(String[]::new);
+		assertEquals(0, AssisApp.run(args));
+		return out;
+	}
+
+	@Test
+	void generatesBothDiagramsWithoutFlags() throws Exception {
+		Path out = runOnHello();
+
+		assertTrue(Files.exists(out.resolve(PUML_FILE)));
+		assertTrue(Files.exists(out.resolve(ER_FILE)));
+	}
+
+	@Test
+	void erFlagGeneratesOnlyEntityDiagram() throws Exception {
+		Path out = runOnHello("--er");
+
+		assertTrue(Files.readString(out.resolve(ER_FILE), UTF_8).startsWith("erDiagram"));
+		assertFalse(Files.exists(out.resolve(PUML_FILE)));
+	}
+
+	@Test
+	void classFlagGeneratesOnlyClassDiagram() throws Exception {
+		Path out = runOnHello("--class");
+
+		assertTrue(Files.exists(out.resolve(PUML_FILE)));
+		assertFalse(Files.exists(out.resolve(ER_FILE)));
+	}
+
+	@Test
+	void bothFlagsGenerateBothDiagrams() throws Exception {
+		Path out = runOnHello("--class", "--er");
+
+		assertTrue(Files.exists(out.resolve(PUML_FILE)));
+		assertTrue(Files.exists(out.resolve(ER_FILE)));
+	}
+
+	@Test
+	void usageDocumentsDiagramFlags() {
+		assertTrue(CliArgs.usage.contains("--class"));
+		assertTrue(CliArgs.usage.contains("--er"));
 	}
 
 	private static String debugBuffers(ByteArrayOutputStream outBuf, ByteArrayOutputStream errBuf) {

@@ -46,3 +46,42 @@ Reads the **raw** `pom.xml` only. It does **not** yet:
 - read `<dependencyManagement>` or imported BOMs;
 - resolve transitive dependencies.
 
+
+# assis-er
+
+`assis-er` reads Java sources, finds the JPA `@Entity` classes and writes a Mermaid
+`erDiagram` to `entity-diagram.mmd`. It runs through the ASSIS CLI:
+
+```bash
+java -jar assis.jar               # class-diagram.puml and entity-diagram.mmd
+java -jar assis.jar --er          # only entity-diagram.mmd
+java -jar assis.jar --class       # only class-diagram.puml
+```
+
+`-sourcepath` and `-d` work as for the class diagram (default output: `docs/diagrams/src/`).
+
+### Example output
+
+```mermaid
+erDiagram
+    "Owner" {
+        Long id PK
+        String name
+    }
+    "Pet" {
+        Long id PK
+    }
+    "Pet" }o--|| "Owner" : "owner"
+```
+
+### Scope and limitations
+
+- Fields become attributes (`@Id` → `PK`); `static`, `transient` and `@Transient` fields are skipped.
+- Generic types use `~` (`List<String>` → `List~String~`); package names are dropped.
+- `@ManyToOne`, `@OneToMany`, `@OneToOne` and `@ManyToMany` become relationships with a fixed
+  cardinality per annotation; the `mappedBy` side is not drawn twice.
+- Java names only: `@Table` and `@Column` names are ignored.
+- Constraints such as non-null foreign keys are ignored.
+- Inheritance (`@MappedSuperclass`, `@Inheritance`) and embeddables are not supported yet.
+
+See `docs/entity-diagram-plan.md` for the design and roadmap.

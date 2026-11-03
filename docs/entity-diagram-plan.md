@@ -41,7 +41,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 1 | Entity detection: `@Entity` classes → one entity line each | **Done** |
 | 2 | Attributes: fields, Java types (generics with `~`), `@Id` → `PK`, transient fields excluded | **Done** |
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
-| 4 | Wiring: CLI flag, user docs | Not started |
+| 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
 
 Out of scope for now (deferred, no part assigned): inheritance and value types —
 `@MappedSuperclass`, `@Embeddable`/`@Embedded`, `@Inheritance`.
@@ -480,3 +480,77 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 - All R/E/G tests pass, plus the full build (`mvn test` from the root).
 - `graphify update .` run.
 - No commits (user commits).
+
+---
+
+## Part 4 — CLI wiring and docs
+
+### Scope
+
+In:
+- `assis-cli` depends on `assis-er`; the shaded `assis.jar` bundles it.
+- Two new value-less flags in `CliArgs`, existing CLI style (not `assis-pom`'s `--key=value`):
+
+  | Flags | Output in `-d` directory |
+  |-------|--------------------------|
+  | none | `class-diagram.puml` **and** `entity-diagram.mmd` |
+  | `--class` | `class-diagram.puml` only |
+  | `--er` | `entity-diagram.mmd` only |
+  | `--class --er` | both |
+
+- `--help` usage text documents both flags.
+- User docs: `docs/user/assis-gs-bash.md` (run step, outputs, tip) and a short `assis-er` section in `README.md`.
+
+Out: the naming parameter (see "Future: user-defined naming"), a standalone `assis-er` jar/`main`.
+
+### Behaviour change
+
+Running with no flags now also writes `entity-diagram.mmd` (previously only
+`class-diagram.puml`). For code without `@Entity` classes the file contains just `erDiagram`.
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D14 | ER generation exposed through `assis-cli` flags, not a separate jar | One tool, one command (option A). |
+| D15 | No flag = both diagrams; `--class` / `--er` select; both flags = both | User choice. |
+| D16 | `-d`, `--source-path` and source auto-discovery apply to both diagrams unchanged | Same inputs, same output directory. |
+
+### Components (changes)
+
+1. **`assis-cli/pom.xml`** — add dependency `io.github.masmangan:assis-er:${project.version}`.
+2. **`CliArgs`** — new fields `boolean classDiagram`, `boolean erDiagram`; `--class` / `--er` set them;
+   if neither is given, both are `true`. Usage text gains:
+   ```
+     --class
+           Generate only the class diagram (class-diagram.puml)
+     --er
+           Generate only the entity diagram (entity-diagram.mmd)
+   ```
+   and under Defaults: `Without --class or --er, both diagrams are generated.`
+3. **`AssisApp.run`** — calls `GenerateClassDiagram.generate` if `classDiagram`,
+   `GenerateEntityDiagram.generate` if `erDiagram`. Exit codes unchanged.
+
+### Required test cases
+
+`AssisAppTest` (writes `Hello.java` into `@TempDir`, like the existing tests; no new sample needed):
+
+| ID | Args | Expected |
+|----|------|----------|
+| C1 | `-sourcepath <hello> -d <out>` | exit 0; `class-diagram.puml` and `entity-diagram.mmd` both exist |
+| C2 | `... --er` | exit 0; `entity-diagram.mmd` exists and starts with `erDiagram`; no `class-diagram.puml` |
+| C3 | `... --class` | exit 0; `class-diagram.puml` exists; no `entity-diagram.mmd` |
+| C4 | `... --class --er` | exit 0; both exist |
+| C5 | `CliArgs.usage` | contains `--class` and `--er` |
+
+Existing `AssisAppTest` cases keep passing unchanged.
+
+### Done when
+
+- C1–C5 pass, plus the full build (`mvn test` from the root).
+- Docs updated; `graphify update .` run.
+- No commits (user commits).
+
+Implementation note: the existing `generatesDiagramFromDefaults` and
+`generatesDiagramFromHelloUsingSourcepathOnly` tests write into the real
+`docs/diagrams/src/`; their cleanup now also deletes `entity-diagram.mmd`.

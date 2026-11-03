@@ -106,6 +106,13 @@ java -jar assis.jar
 ASSIS will:
 - Scan Java source files in the current folder
 - Generate UML diagrams in PlantUML format under `docs/diagrams/src/`
+- Generate an entity diagram of your JPA `@Entity` classes in Mermaid format (`entity-diagram.mmd`) in the same folder
+
+To generate only one of them, pass `--class` (class diagram) or `--er` (entity diagram):
+
+```bash
+java -jar assis.jar --er
+```
 
 > **Tip**  
 > Make your life easier by creating an alias:
@@ -122,7 +129,8 @@ ASSIS will:
 
 ## Step 7: Open the generated diagram
 
-Look for the generated `class-diagram.puml` file.
+Look for the generated `class-diagram.puml` file. Next to it you will find
+`entity-diagram.mmd`; without `@Entity` classes it only contains `erDiagram`.
 
 A minimal example looks like:
 

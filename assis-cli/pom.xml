@@ -16,6 +16,11 @@
 			<artifactId>assis-core</artifactId>
 			<version>${project.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>io.github.masmangan</groupId>
+			<artifactId>assis-er</artifactId>
+			<version>${project.version}</version>
+		</dependency>
 	</dependencies>
 
 	<build>

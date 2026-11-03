@@ -14,6 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import io.github.masmangan.assis.GenerateClassDiagram;
+import io.github.masmangan.assis.er.GenerateEntityDiagram;
 
 /**
  * The {@code AssisApp} class is the PlantUML diagram generator entry point.
@@ -101,7 +102,12 @@ public final class AssisApp {
 			}
 			LOG.info(() -> "Writing outputs to: " + outDir);
 
-			GenerateClassDiagram.generate(sourceRoots, outDir);
+			if (cli.classDiagram) {
+				GenerateClassDiagram.generate(sourceRoots, outDir);
+			}
+			if (cli.erDiagram) {
+				GenerateEntityDiagram.generate(sourceRoots, outDir);
+			}
 
 			return 0;
 		} catch (Exception e) {
