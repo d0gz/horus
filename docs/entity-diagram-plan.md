@@ -42,7 +42,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 2 | Attributes: fields, Java types (generics with `~`), `@Id` → `PK`, transient fields excluded | **Done** |
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
-| 5 | Inferred relationships from ID-typed fields (dotted `..` lines) | **Done** |
+| 5 | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | **Done** |
 
 Out of scope for now (deferred, no part assigned): inheritance and value types —
 `@MappedSuperclass`, `@Embeddable`/`@Embedded`, `@Inheritance`.
@@ -591,6 +591,10 @@ Infer these links from ID types, and render them distinctly from JPA mappings.
    entity's own ID type, emit an inferred relationship to the mapped entity.
 3. **Render** inferred relationships with Mermaid's non-identifying (dotted)
    line `..`, labelled with the field name.
+4. **Mark foreign keys:** a single-valued field that produced an inferred
+   relationship gets the `FK` marker (`OwnerId ownerId FK`). Collection fields
+   (`Set<PetId>`) are not marked (no column on the owner's table); neither are the
+   entity's own ID type nor `@Id` fields.
 
 ### Cardinality
 
@@ -628,14 +632,15 @@ Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by t
 - IDs whose owning entity is outside the scanned sources are ignored.
 - ID types are matched by simple name; same-named ID classes in different packages are not distinguished.
 - A custom generic wrapper around an ID is assumed single-valued, even if it is really a collection.
-- No `PK`/`FK` markers for inferred references or for IDs inherited from external bases (e.g. jpearl `AbstractEntity`); deferred.
+- `PK` is not shown for IDs inherited from external bases (e.g. jpearl `AbstractEntity`), and `FK` is not shown for annotated associations (`@ManyToOne`, `@OneToOne`); both deferred.
 - Inferred relationships are always on; there is no flag to disable them yet.
 
 ### Components (changes)
 
-- `EntityView`: relationship gains `inferred` flag (secondary constructor keeps earlier callers compiling).
+- `EntityView`: relationship gains `inferred` flag; attribute gains `foreignKey` flag
+  (secondary constructors keep earlier callers compiling).
 - `EntityExtractor`: collect ID type per entity; add inference pass.
-- `EntityMermaidRenderer`: `..` instead of `--` when `inferred`.
+- `EntityMermaidRenderer`: `..` instead of `--` when `inferred`; ` FK` after the name when `foreignKey`.
 - Ordering: inferred relationships are emitted per entity right after that entity's
   annotated ones (refines D12: entity order, then annotated, then inferred).
 - Samples: `samples/inferred/` with `AbstractEntity<XId>`-style entities.
@@ -656,12 +661,13 @@ Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by t
 | I10 | Entity with `@Id PetId id` and superclass `Base<Other>` | `PetId` ↦ entity (`@Id` wins over generic) |
 | I13 | `Optional<PetId>` and unknown `Wrapper<PetId>` | many-to-one |
 | I14 | `Map<String, PetId>` | one-to-many |
+| I12 | `PetId petId` / `Set<PetId> petIds` fields | `petId` gets `FK`; `petIds` does not; own ID type and `@Id` fields get no `FK` |
 | I11 | Entity with `@Id Long number` and `extends AbstractEntity<ClinicId>` | `ClinicId` ↦ entity (JDK-typed `@Id` falls back to the generic) |
 
 Existing Part 3 tests keep passing unchanged.
 
 ### Done when
 
-- I1–I14 pass, plus `mvn test` from the root.
+- I1–I14 pass (including I12), plus `mvn test` from the root.
 - Running against `../petclinic` shows `Visit` linked to `Owner`, `Pet`, `Veterinarian`.
 - `graphify update .` run. No commits.

@@ -54,8 +54,13 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	}
 
 	/**
-	 * @param type Java type as written in source
+	 * @param type       Java type as written in source
+	 * @param foreignKey true for a single-valued field inferred as an ID reference
 	 */
-	public record Attribute(String type, String name, boolean primaryKey) {
+	public record Attribute(String type, String name, boolean primaryKey, boolean foreignKey) {
+
+		public Attribute(String type, String name, boolean primaryKey) {
+			this(type, name, primaryKey, false);
+		}
 	}
 }

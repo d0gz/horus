@@ -70,7 +70,7 @@ public final class EntityExtractor {
 		List<EntityView.Entity> entities = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
 			entities.add(new EntityView.Entity(td.getNameAsString(),
-					attributesOf(td)));
+					attributesOf(td, owners, idTypeOf(td, projectTypes, names))));
 		}
 		List<EntityView.Relationship> relationships = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
@@ -100,7 +100,10 @@ public final class EntityExtractor {
 		return relationships;
 	}
 
-	/** ID type simple name to owning entity; ID types claimed by several entities are dropped. */
+	/**
+	 * ID type simple name to owning entity; ID types claimed by several entities
+	 * are dropped.
+	 */
 	private static Map<String, String> idOwners(List<TypeDeclaration<?>> types, Set<String> projectTypes,
 			Set<String> entityNames) {
 		Map<String, String> owners = new HashMap<>();
@@ -116,7 +119,9 @@ public final class EntityExtractor {
 		return owners;
 	}
 
-	/** @Id/@EmbeddedId field type, else the type argument of a known ID-style base. */
+	/**
+	 * @Id/@EmbeddedId field type, else the type argument of a known ID-style base.
+	 */
 	private static Optional<String> idTypeOf(TypeDeclaration<?> td, Set<String> projectTypes,
 			Set<String> entityNames) {
 		for (FieldDeclaration fd : td.getFields()) {
@@ -169,7 +174,10 @@ public final class EntityExtractor {
 		return relationships;
 	}
 
-	/** Known collection types hold many IDs; Optional and unknown generics are single-valued. */
+	/**
+	 * Known collection types hold many IDs; Optional and unknown generics are
+	 * single-valued.
+	 */
 	private static boolean isCollection(Type type) {
 		return type instanceof ClassOrInterfaceType cit && CollectionTypes.isCollection(cit.getNameAsString());
 	}
@@ -183,7 +191,10 @@ public final class EntityExtractor {
 				&& n.getPairs().stream().anyMatch(p -> "mappedBy".equals(p.getNameAsString()));
 	}
 
-	/** Last type argument for generics (List<Pet>, Map<K, Pet>), else the type itself. */
+	/**
+	 * Last type argument for generics (List<Pet>, Map<K, Pet>), else the type
+	 * itself.
+	 */
 	private static String targetOf(Type type) {
 		if (type instanceof ClassOrInterfaceType cit) {
 			var args = cit.getTypeArguments();
@@ -195,7 +206,8 @@ public final class EntityExtractor {
 		return type.asString();
 	}
 
-	private static List<EntityView.Attribute> attributesOf(TypeDeclaration<?> td) {
+	private static List<EntityView.Attribute> attributesOf(TypeDeclaration<?> td, Map<String, String> owners,
+			Optional<String> ownId) {
 		List<EntityView.Attribute> attributes = new ArrayList<>();
 		for (FieldDeclaration fd : td.getFields()) {
 			if (fd.isStatic() || fd.isTransient() || hasAnyAnnotation(fd, NOT_ATTRIBUTES)) {
@@ -203,7 +215,10 @@ public final class EntityExtractor {
 			}
 			boolean pk = hasAnyAnnotation(fd, Set.of(ID));
 			for (VariableDeclarator v : fd.getVariables()) {
-				attributes.add(new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk));
+				String ref = targetOf(v.getType());
+				boolean fk = !pk && !isCollection(v.getType()) && owners.containsKey(ref)
+						&& ownId.filter(ref::equals).isEmpty();
+				attributes.add(new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk));
 			}
 		}
 		return attributes;

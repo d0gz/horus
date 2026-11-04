@@ -30,6 +30,9 @@ public final class EntityMermaidRenderer {
 				if (a.primaryKey()) {
 					sb.append(" PK");
 				}
+				if (a.foreignKey()) {
+					sb.append(" FK");
+				}
 				sb.append('\n');
 			}
 			sb.append(INDENT).append("}\n");

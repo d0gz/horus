@@ -119,4 +119,13 @@ class EntityMermaidRendererTest {
 		assertTrue(out.contains("    \"Visit\" }o..|| \"Pet\" : \"petId\"\n"), out);
 		assertTrue(out.contains("    \"Owner\" ||..o{ \"Pet\" : \"petIds\"\n"), out);
 	}
+
+	@Test
+	void rendersForeignKeyMarker() {
+		var view = new EntityView(List.of(new EntityView.Entity("Pet",
+				List.of(new EntityView.Attribute("OwnerId", "ownerId", false, true)))));
+
+		assertEquals("erDiagram\n    \"Pet\" {\n        OwnerId ownerId FK\n    }\n",
+				EntityMermaidRenderer.render(view));
+	}
 }

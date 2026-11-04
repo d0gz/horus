@@ -213,6 +213,19 @@ class EntityExtractorTest {
 	}
 
 	@Test
+	void marksInferredSingleValuedReferencesAsForeignKeys() throws Exception {
+		var fks = extractFrom("samples/inferred").entities().stream().flatMap(
+				e -> e.attributes().stream().filter(EntityView.Attribute::foreignKey).map(a -> e.name() + "." + a.name()))
+				.toList();
+
+		assertTrue(fks.contains("Pet.ownerId"), fks.toString());
+		assertTrue(fks.contains("Visit.petId"), fks.toString());
+		assertTrue(fks.stream().noneMatch(f -> f.equals("Owner.petIds") || f.equals("Shelter.pets")), fks.toString());
+		assertTrue(fks.stream().noneMatch(f -> f.equals("Visit.previousVisitId") || f.equals("Clinic.number")),
+				fks.toString());
+	}
+
+	@Test
 	void inferredSampleRelationshipsInOrder() throws Exception {
 		assertEquals(List.of("Owner->Pet ONE_TO_MANY petIds ~", "Pet->Owner MANY_TO_ONE ownerId ~",
 				"Shelter->Pet MANY_TO_ONE mascot ~", "Shelter->Pet ONE_TO_MANY pets ~",
