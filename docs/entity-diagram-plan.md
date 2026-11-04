@@ -29,7 +29,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | D4 | Annotations matched by simple name (`Entity`) | Same rule as `DeclaredIndex.stereotypesOf`; covers `jakarta.persistence` and `javax.persistence`, imported or fully qualified. |
 | D5 | Start as simple as possible; every part ships with required tests | Incremental, verifiable steps. |
 | D6 | Entity names are always double-quoted (`"Owner"`) | Valid Mermaid for any name. |
-| D7 | Java names only (class and field names); `@Table`/`@Column` names ignored for now | Simplest. User-selectable naming comes later (see Future). |
+| D7 | Java names only (class and field names); `@Table`/`@Column` names ignored for now (**superseded by D22, Part 7**) | Simplest. |
 | D8 | Generic types render with `~` instead of `<`/`>` (`Map<String, List<Integer>>` → `Map~String,List~Integer~~`) | Mermaid 11 ER lexer accepts `~…~` in attribute types. Verified against `erDiagram.jison` (mermaid@11.4.1), including nested generics, wildcards and arrays. |
 | D9 | Package qualifiers are stripped from types (`java.time.LocalDate` → `LocalDate`) | A dot outside `~…~` is a Mermaid parse error (verified). |
 | D10 | `EntityView` keeps the Java type exactly as written; Mermaid conversion (D8, D9) happens only in the renderer | The view stays free of Mermaid concerns, as in `assis-pom`. |
@@ -43,21 +43,19 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
 | 5 | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | **Done** |
+| 6 | Optionality and nullability: required/optional relationship ends, `not null` on columns | Planned |
+| 7 | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | Planned |
+| 8 | Inherited attributes: `PK` from ID-style bases and fields of non-entity superclasses | Planned |
 
-Out of scope for now (deferred, no part assigned): inheritance and value types —
-`@MappedSuperclass`, `@Embeddable`/`@Embedded`, `@Inheritance`.
+Out of scope for now (deferred, no part assigned): value types and entity
+inheritance strategies — `@Embeddable`/`@Embedded`, `@Inheritance`. Inheritance from
+non-entity superclasses (including `@MappedSuperclass`) is covered by Part 8.
 
-### Future: user-defined naming
+### Future: naming option
 
-The naming used in the diagram should become a user parameter (e.g. a generator
-option or a CLI flag in Part 4), so the user can choose between:
-
-- **Java names** (current default): `"Owner" { String fullName }`.
-- **Entity alias from `@Table`**: `"Owner"["owners"]`.
-- **Column names from `@Column`**: shown as the attribute comment
-  (`String fullName "full_name"`) or as an extra column.
-
-Until then, `@Table` and `@Column` are ignored.
+Naming from `@Table` / `@Column` is specified in Part 7 and applied automatically when
+the annotations are present. A CLI flag to switch back to pure Java names is a
+possible follow-up, not in scope.
 
 ---
 
@@ -632,7 +630,7 @@ Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by t
 - IDs whose owning entity is outside the scanned sources are ignored.
 - ID types are matched by simple name; same-named ID classes in different packages are not distinguished.
 - A custom generic wrapper around an ID is assumed single-valued, even if it is really a collection.
-- `PK` is not shown for IDs inherited from external bases (e.g. jpearl `AbstractEntity`), and `FK` is not shown for annotated associations (`@ManyToOne`, `@OneToOne`); both deferred.
+- `PK` for IDs inherited from bases such as jpearl `AbstractEntity` is added in Part 8; `FK` is still not shown for annotated associations (`@ManyToOne`, `@OneToOne`), deferred.
 - Inferred relationships are always on; there is no flag to disable them yet.
 
 ### Components (changes)
@@ -670,4 +668,293 @@ Existing Part 3 tests keep passing unchanged.
 
 - I1–I14 pass (including I12), plus `mvn test` from the root.
 - Running against `../petclinic` shows `Visit` linked to `Owner`, `Pet`, `Veterinarian`.
+- `graphify update .` run. No commits.
+
+## Part 6 — Optionality and nullability
+
+### Scope
+
+Today the cardinality only comes from the annotation kind (D11) and no constraint is
+read (see Part 3 known limitations).
+
+In:
+- **Relationship ends.** Read optionality of the "one" side of `@ManyToOne` and owning
+  `@OneToOne`:
+  - required (`optional = false`, or `@JoinColumn(nullable = false)`) → `||`;
+  - otherwise (JPA default is `optional = true`) → `o|` (zero or one).
+- **Columns.** Attributes with `@Column(nullable = false)` or `@Basic(optional = false)`
+  are marked `not null`.
+
+Out:
+- `@NotNull`/`@NonNull` (Bean Validation, Lombok): not JPA constraints; possible opt-in later.
+- Primitive types (`int`) as implicitly not null.
+- `@OneToMany` / `@ManyToMany` ends and `@JoinTable` constraints.
+- Inferred (Part 5) relationships: no annotation, so no constraint; they keep the assumed
+  `}o..||`.
+- Unique constraints (`UK`).
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D18 | Annotated `@ManyToOne` defaults to `}o--o\|` (optional), required becomes `}o--\|\|`; `@OneToOne` defaults to `\|\|--o\|`, required stays `\|\|--\|\|` | Follows the JPA default (`optional = true`). **This changes the default output of every annotated `@ManyToOne`/`@OneToOne`** (R11, R13 and related tests are updated). |
+| D19 | When sources disagree (`optional = true` but `@JoinColumn(nullable = false)`), required wins | The column constraint is what the database enforces. |
+| D20 | Nullability of a column is shown as the attribute comment `"not null"` | Mermaid attribute keys are only `PK`, `FK`, `UK`; there is no NOT NULL marker. |
+| D21 | `@Id` fields are never marked `not null` | Already implied by `PK`. |
+
+Syntax to verify against `erDiagram.jison` (mermaid@11.4.1) before implementing: `o|`
+on the right-hand side, and an attribute comment after the keys (`Long id PK "comment"`).
+
+### Output
+
+```
+erDiagram
+    "Pet" {
+        Long id PK
+        String name "not null"
+    }
+    "Pet" }o--o| "Owner" : "owner"
+    "Pet" }o--|| "Clinic" : "clinic"
+```
+
+### Components (changes)
+
+- `EntityView`: `Relationship` gains `boolean required` (default constructor value
+  `false`); `Attribute` gains `boolean notNull`. Secondary constructors keep earlier callers
+  compiling.
+- `EntityExtractor`: `relationshipsOf` reads the annotation members (`optional`) and an
+  accompanying `@JoinColumn(nullable)`; `attributesOf` reads `@Column(nullable)` and
+  `@Basic(optional)`.
+- `EntityMermaidRenderer`: `symbol` picks `o|` or `||` for the target end of annotated
+  `MANY_TO_ONE`/`ONE_TO_ONE` (inferred ones unchanged); attributes with `notNull` append
+  `"not null"` after the keys.
+
+### Required test cases
+
+Renderer — `EntityMermaidRendererTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| N1 | `MANY_TO_ONE`, not required | `}o--o\|` |
+| N2 | `MANY_TO_ONE`, required | `}o--\|\|` |
+| N3 | `ONE_TO_ONE`, not required / required | `\|\|--o\|` / `\|\|--\|\|` |
+| N4 | `ONE_TO_MANY`, `MANY_TO_MANY` | unchanged |
+| N5 | Inferred `MANY_TO_ONE` | `}o..\|\|` unchanged |
+| N6 | Attribute `notNull` with and without `PK` keys | `String name "not null"` |
+
+Extractor — `EntityExtractorTest`, new sample `samples/optionality/`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| O1 | `@ManyToOne` with no members | not required |
+| O2 | `@ManyToOne(optional = false)` | required |
+| O3 | `@ManyToOne @JoinColumn(nullable = false)` | required |
+| O4 | `@ManyToOne(optional = true) @JoinColumn(nullable = false)` | required (D19) |
+| O5 | `@OneToOne` optional / `@OneToOne(optional = false)` | not required / required |
+| O6 | `@Column(nullable = false) String name` | attribute `notNull` |
+| O7 | `@Basic(optional = false) String code` | attribute `notNull` |
+| O8 | `@Id` field | never `notNull` |
+
+End-to-end — `GenerateEntityDiagramSampleTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| G9 | `samples/optionality` | file equals the full expected diagram |
+
+### Done when
+
+- N1–N6, O1–O8 and G9 pass, plus `mvn test` from the root; Part 3 expected strings updated per D18.
+- `graphify update .` run. No commits.
+
+---
+
+## Part 7 — `@Table` and `@Column` names
+
+### Scope
+
+In:
+- **Entity.** `@Table(name = "owners")` → the table name is displayed, the Java class
+  name stays as the Mermaid entity identifier: `"Owner"["owners"]`. Relationship lines
+  keep using `"Owner"`.
+- **Attribute.** `@Column(name = "full_name") String fullName` → the attribute is
+  shown with the **column name**, and the Java field name goes in the attribute comment:
+  `String full_name "fullName"`.
+- Names are used only when the annotation gives a `name` that differs from the Java
+  name; otherwise output is unchanged.
+
+Out: `schema`/`catalog` of `@Table`, `@Entity(name = ...)` (a JPQL name), `@JoinColumn`
+names, `@Column` length/precision, naming strategies (Spring `SpringPhysicalNamingStrategy`
+etc.), relationship labels (remain Java field names, D13).
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D22 | Replaces D7: names from `@Table`/`@Column` are shown when present | Diagram matches the database. Replaces the earlier "Future" idea of putting the column name in the comment. |
+| D23 | The Mermaid entity identifier stays the Java class name; the table name is the alias | Relationships and tooling keep stable identifiers. |
+| D24 | If the column name is not a valid Mermaid attribute identifier (spaces, quotes), keep the Java field name as attribute and put the column name in the comment | Mermaid would reject the line. |
+| D25 | The comment is a comma-joined list: original Java name first, then `not null` (Part 6): `String full_name "fullName, not null"` | Mermaid allows a single comment per attribute. |
+| D26 | Double quotes inside names/comments are escaped | Valid Mermaid for any input. |
+
+Syntax to verify against `erDiagram.jison` (mermaid@11.4.1) before implementing: entity
+alias `"Owner"["owners"]` (supported from Mermaid 10.5), attribute comment after keys,
+and which column-name characters are accepted (D24).
+
+### Output
+
+```
+erDiagram
+    "Owner"["owners"] {
+        Long id PK
+        String full_name "fullName"
+        String email "not null"
+    }
+    "Pet" }o--o| "Owner" : "owner"
+```
+
+### Components (changes)
+
+- `EntityView`: `Entity` gains `String tableName` (nullable); `Attribute` gains
+  `String columnName` (nullable). Secondary constructors keep earlier callers compiling;
+  the view keeps the Java names in `name` (D10).
+- `EntityExtractor`: read `@Table(name)` on the entity and `@Column(name)` on fields
+  (annotations matched by simple name, D4; inherited fields included, Part 8).
+- `EntityMermaidRenderer`: emit the alias after the identifier, the column name as the
+  attribute name when valid (D24), and build the comment per D25/D26.
+
+### Required test cases
+
+Renderer — `EntityMermaidRendererTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| T1 | Entity with `tableName` | `"Owner"["owners"] {` |
+| T2 | Entity without `tableName` | unchanged |
+| T3 | Relationship involving an aliased entity | line still uses `"Owner"` |
+| T4 | Attribute with `columnName` | `String full_name "fullName"` |
+| T5 | `columnName` plus `notNull` | `String full_name "fullName, not null"` |
+| T6 | Invalid column identifier | Java name as attribute, column name in comment |
+| T7 | Quote in a name | escaped |
+
+Extractor — `EntityExtractorTest`, new sample `samples/naming/`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| M1 | `@Table(name = "owners")` | `tableName` = `owners` |
+| M2 | `@Table` with only `schema`, or no `@Table` | `tableName` null |
+| M3 | `@Column(name = "full_name")` | `columnName` = `full_name`, `name` still `fullName` |
+| M4 | `@Column` without name, or name equal to the field | `columnName` null |
+| M5 | Inherited field with `@Column(name)` | `columnName` kept (Part 8) |
+
+End-to-end — `GenerateEntityDiagramSampleTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| G10 | `samples/naming` | file equals the full expected diagram |
+
+### Done when
+
+- T1–T7, M1–M5 and G10 pass, plus `mvn test` from the root.
+- `graphify update .` run. No commits.
+
+---
+
+## Part 8 — Inherited attributes
+
+### Scope
+
+Entities that inherit their ID and common fields (petclinic: `extends
+AbstractEntity<OwnerId>`, audit base classes, `@MappedSuperclass`) currently show
+only their own fields, so the table has no `PK` and misses inherited columns.
+
+In:
+- For each entity, walk its `extends` chain, resolving superclasses by simple name in
+  the `DeclaredIndex` (project classes only).
+- Show inherited fields as attributes of the subclass entity, **ancestors first**
+  (farthest ancestor, ..., parent, then the entity's own fields).
+- Inherited fields follow the same rules as own fields: `static`/`transient`/
+  `@Transient` excluded, `@Id` → `PK`, ID-reference fields → `FK`, types converted per
+  D8/D9.
+- Inherited association and inferred-reference fields draw relationship lines **from
+  the subclass entity** (same `mappedBy` and target rules as Parts 3 and 5).
+- **ID-style bases** (the fixed list from Part 5: `AbstractEntity`,
+  `AbstractVersionedEntity`) with a single type argument `XId`: add a synthetic
+  attribute `XId id PK` as the first attribute. This applies whether the base is in
+  the sources or comes from an external library (jpearl), because the ID is known from
+  the generic argument alone.
+
+Out:
+- Fields of superclasses that are not in the scanned sources (other than the synthetic
+  ID above).
+- Superclasses that are themselves `@Entity`: such an entity keeps showing only its own
+  fields (`@Inheritance` strategies stay deferred).
+- `@Embeddable`/`@Embedded`.
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D27 | Synthetic `XId id PK` only when no `@Id`/`@EmbeddedId` field exists in the chain | `@Id` wins over the generic (same priority as Part 5); avoids two `PK`s. |
+| D28 | The synthetic attribute is always named `id` | The field name inside the external base is unknown. |
+| D29 | A field of an in-source generic base typed by its type parameter (`T id`) is shown with the actual argument (`XId`); a base field named `id` is replaced by the synthetic PK, not duplicated | Raw `T` is meaningless in the diagram. |
+| D30 | A subclass field with the same name as an inherited one wins; the inherited one is skipped | Matches Java shadowing; no duplicate attributes. |
+| D31 | A superclass that is an `@Entity` stops the walk | Entity inheritance strategies are deferred. |
+| D32 | Cycles and unresolvable superclasses are ignored silently (walk stops) | Never fail diagram generation on partial sources. |
+
+### Output
+
+Petclinic `Visit` (`extends AbstractEntity<VisitId>`, base external):
+
+```
+"Visit" {
+    VisitId id PK
+    VeterinarianId veterinarianId FK
+    OwnerId ownerId FK
+    PetId petId FK
+    Instant appointmentTime
+}
+```
+
+### Components (changes)
+
+- `EntityExtractor.attributesOf`: collect fields over the superclass chain (ancestors
+  first) instead of only `td.getFields()`; apply D27–D30. A small helper
+  (`superclassChain(td, index)`) returns the ordered list of declarations, guarded
+  against cycles and entity superclasses.
+- `EntityExtractor.relationshipsOf` / `inferredOf`: iterate the same ordered field
+  list, so inherited associations are drawn from the subclass.
+- `EntityView` and `EntityMermaidRenderer`: unchanged.
+- Samples: `samples/inherited/`.
+
+### Required test cases
+
+Extractor — `EntityExtractorTest`, new sample `samples/inherited/`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| H1 | Entity `extends AbstractEntity<PetId>`, base not in sources | first attribute `PetId id`, `primaryKey` true |
+| H2 | Base in sources with `T id` and `Instant createdAt` | `[PetId id PK, createdAt, own fields...]`; no duplicate `id`, `T` replaced |
+| H3 | `@MappedSuperclass Base { @Id Long id; String audit; }` | `Long id PK`, `audit`, then own fields; no synthetic `id` |
+| H4 | Two-level chain grandparent → parent → entity | order: grandparent, parent, own |
+| H5 | `@Entity Animal` and `@Entity Dog extends Animal` | `Dog` shows only its own fields |
+| H6 | Subclass redeclares an inherited field name | one attribute (subclass wins) |
+| H7 | Inherited `@ManyToOne` in the base | relationship from the subclass; inherited `mappedBy` side skipped |
+| H8 | Inherited ID-reference field (`OwnerId ownerId`) in the base | inferred relationship and `FK` on the subclass |
+| H9 | `@Id Long number` plus `extends AbstractEntity<ClinicId>` | only `Long number PK`, no synthetic PK |
+| H10 | Superclass not in sources and not ID-style, or an inheritance cycle | no inherited attributes, no exception |
+
+End-to-end — `GenerateEntityDiagramSampleTest`:
+
+| ID | Case | Expected |
+|----|------|----------|
+| G11 | `samples/inherited` | file equals the full expected diagram |
+
+Existing tests keep passing, except those whose sample entities extend a base that now
+contributes attributes: update their expected output accordingly (notably
+`samples/inferred`, whose `AbstractEntity<T>` has `T id`).
+
+### Done when
+
+- H1–H10 and G11 pass, plus `mvn test` from the root.
+- Running against `../petclinic` shows `VisitId id PK` (and the other IDs) on every table.
 - `graphify update .` run. No commits.
