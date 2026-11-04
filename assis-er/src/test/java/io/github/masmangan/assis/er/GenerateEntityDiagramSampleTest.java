@@ -49,7 +49,7 @@ class GenerateEntityDiagramSampleTest {
 				        LocalDate birth
 				        byte[] photo
 				    }
-				    "Owner" }o--|| "Owner" : "parent"
+				    "Owner" }o--o| "Owner" : "parent"
 				""";
 
 		assertEquals(expected, generateInto(Set.of(sample("samples/attributes")), "out"));
@@ -63,14 +63,42 @@ class GenerateEntityDiagramSampleTest {
 			expected.append(block.formatted(e));
 		}
 		expected.append("""
-				    "Pet" }o--|| "Owner" : "owner"
-				    "Pet" }o--|| "Pet" : "mother"
-				    "User" ||--|| "Profile" : "profile"
+				    "Pet" }o--o| "Owner" : "owner"
+				    "Pet" }o--o| "Pet" : "mother"
+				    "User" ||--o| "Profile" : "profile"
 				    "Vet" }o--o{ "Specialty" : "specialties"
 				    "Visit" ||--o{ "Pet" : "pets"
 				""");
 
 		assertEquals(expected.toString(), generateInto(Set.of(sample("samples/relationships")), "out"));
+	}
+
+	@Test
+	void writesOptionalityForSample() throws Exception {
+		String block = "    \"%s\" {\n        Long id PK\n    }\n";
+		StringBuilder expected = new StringBuilder("erDiagram\n");
+		for (String e : List.of("Breeder", "Chip", "Clinic", "Owner", "Passport")) {
+			expected.append(block.formatted(e));
+		}
+		expected.append("""
+				    "Pet" {
+				        Long id PK
+				        String name "not null"
+				        String code "not null"
+				        String nickname
+				    }
+				""");
+		expected.append(block.formatted("Shelter"));
+		expected.append("""
+				    "Pet" }o--o| "Owner" : "owner"
+				    "Pet" }o--|| "Clinic" : "clinic"
+				    "Pet" }o--|| "Breeder" : "breeder"
+				    "Pet" }o--|| "Shelter" : "shelter"
+				    "Pet" ||--o| "Passport" : "passport"
+				    "Pet" ||--|| "Chip" : "chip"
+				""");
+
+		assertEquals(expected.toString(), generateInto(Set.of(sample("samples/optionality")), "out"));
 	}
 
 	@Test

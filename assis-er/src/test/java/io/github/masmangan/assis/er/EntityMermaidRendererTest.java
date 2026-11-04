@@ -78,10 +78,49 @@ class EntityMermaidRendererTest {
 		return EntityMermaidRenderer.render(view);
 	}
 
+	private static String renderRequired(EntityView.Cardinality cardinality, boolean required) {
+		EntityView view = new EntityView(List.of(new EntityView.Entity("Pet"), new EntityView.Entity("Owner")),
+				List.of(new EntityView.Relationship("Pet", "Owner", cardinality, "owner", false, required)));
+		return EntityMermaidRenderer.render(view);
+	}
+
 	@Test
 	void rendersManyToOne() {
-		assertEquals("erDiagram\n    \"Pet\"\n    \"Owner\"\n    \"Pet\" }o--|| \"Owner\" : \"owner\"\n",
+		assertEquals("erDiagram\n    \"Pet\"\n    \"Owner\"\n    \"Pet\" }o--o| \"Owner\" : \"owner\"\n",
 				renderRelationship(EntityView.Cardinality.MANY_TO_ONE));
+	}
+
+	@Test
+	void rendersOptionalManyToOne() {
+		assertTrue(renderRequired(EntityView.Cardinality.MANY_TO_ONE, false).contains("\"Pet\" }o--o| \"Owner\""));
+	}
+
+	@Test
+	void rendersRequiredManyToOne() {
+		assertTrue(renderRequired(EntityView.Cardinality.MANY_TO_ONE, true).contains("\"Pet\" }o--|| \"Owner\""));
+	}
+
+	@Test
+	void rendersOptionalAndRequiredOneToOne() {
+		assertTrue(renderRequired(EntityView.Cardinality.ONE_TO_ONE, false).contains("\"Pet\" ||--o| \"Owner\""));
+		assertTrue(renderRequired(EntityView.Cardinality.ONE_TO_ONE, true).contains("\"Pet\" ||--|| \"Owner\""));
+	}
+
+	@Test
+	void requiredDoesNotChangeToManyEnds() {
+		for (boolean required : List.of(false, true)) {
+			assertTrue(renderRequired(EntityView.Cardinality.ONE_TO_MANY, required).contains("\"Pet\" ||--o{ \"Owner\""));
+			assertTrue(renderRequired(EntityView.Cardinality.MANY_TO_MANY, required).contains("\"Pet\" }o--o{ \"Owner\""));
+		}
+	}
+
+	@Test
+	void inferredManyToOneStaysOnlyOne() {
+		EntityView view = new EntityView(List.of(new EntityView.Entity("Visit"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Visit", "Pet", EntityView.Cardinality.MANY_TO_ONE, "petId", true,
+						false)));
+
+		assertTrue(EntityMermaidRenderer.render(view).contains("\"Visit\" }o..|| \"Pet\""));
 	}
 
 	@Test
@@ -91,7 +130,7 @@ class EntityMermaidRendererTest {
 
 	@Test
 	void rendersOneToOne() {
-		assertTrue(renderRelationship(EntityView.Cardinality.ONE_TO_ONE).contains("\"Pet\" ||--|| \"Owner\""));
+		assertTrue(renderRelationship(EntityView.Cardinality.ONE_TO_ONE).contains("\"Pet\" ||--o| \"Owner\""));
 	}
 
 	@Test
@@ -105,7 +144,7 @@ class EntityMermaidRendererTest {
 				List.of(new EntityView.Relationship("Pet", "Owner", EntityView.Cardinality.MANY_TO_ONE, "owner")));
 
 		assertEquals("erDiagram\n    \"Owner\" {\n        Long id PK\n        String name\n    }\n    \"Pet\"\n"
-				+ "    \"Pet\" }o--|| \"Owner\" : \"owner\"\n", EntityMermaidRenderer.render(view));
+				+ "    \"Pet\" }o--o| \"Owner\" : \"owner\"\n", EntityMermaidRenderer.render(view));
 	}
 
 	@Test
@@ -127,5 +166,16 @@ class EntityMermaidRendererTest {
 
 		assertEquals("erDiagram\n    \"Pet\" {\n        OwnerId ownerId FK\n    }\n",
 				EntityMermaidRenderer.render(view));
+	}
+
+	@Test
+	void rendersNotNullCommentAfterKeys() {
+		var view = new EntityView(List.of(new EntityView.Entity("Pet",
+				List.of(new EntityView.Attribute("Long", "id", true, false, true),
+						new EntityView.Attribute("String", "name", false, false, true),
+						new EntityView.Attribute("OwnerId", "ownerId", false, true, true)))));
+
+		assertEquals("erDiagram\n    \"Pet\" {\n        Long id PK \"not null\"\n        String name \"not null\"\n"
+				+ "        OwnerId ownerId FK \"not null\"\n    }\n", EntityMermaidRenderer.render(view));
 	}
 }

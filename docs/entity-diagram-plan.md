@@ -43,7 +43,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
 | 5 | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | **Done** |
-| 6 | Optionality and nullability: required/optional relationship ends, `not null` on columns | Planned |
+| 6 | Optionality and nullability: required/optional relationship ends, `not null` on columns | **Done** |
 | 7 | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | Planned |
 | 8 | Inherited attributes: `PK` from ID-style bases and fields of non-entity superclasses | Planned |
 

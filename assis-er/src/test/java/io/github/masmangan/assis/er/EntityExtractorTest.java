@@ -234,4 +234,61 @@ class EntityExtractorTest {
 				"Visit->Clinic MANY_TO_ONE clinicId ~"),
 				inferred());
 	}
+
+	private Map<String, Boolean> requiredByLabel() throws Exception {
+		return extractFrom("samples/optionality").relationships().stream()
+				.collect(Collectors.toMap(EntityView.Relationship::label, EntityView.Relationship::required));
+	}
+
+	private Map<String, Boolean> petNotNull() throws Exception {
+		return extractFrom("samples/optionality").entities().stream().filter(e -> e.name().equals("Pet")).findFirst()
+				.orElseThrow().attributes().stream()
+				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::notNull));
+	}
+
+	@Test
+	void manyToOneWithoutMembersIsOptional() throws Exception {
+		assertEquals(false, requiredByLabel().get("owner"));
+	}
+
+	@Test
+	void manyToOneOptionalFalseIsRequired() throws Exception {
+		assertEquals(true, requiredByLabel().get("clinic"));
+	}
+
+	@Test
+	void joinColumnNotNullableIsRequired() throws Exception {
+		assertEquals(true, requiredByLabel().get("breeder"));
+	}
+
+	@Test
+	void requiredWinsOverOptionalTrue() throws Exception {
+		assertEquals(true, requiredByLabel().get("shelter"));
+	}
+
+	@Test
+	void oneToOneOptionalAndRequired() throws Exception {
+		Map<String, Boolean> required = requiredByLabel();
+
+		assertEquals(false, required.get("passport"));
+		assertEquals(true, required.get("chip"));
+	}
+
+	@Test
+	void columnNotNullableMarksAttribute() throws Exception {
+		Map<String, Boolean> notNull = petNotNull();
+
+		assertEquals(true, notNull.get("name"));
+		assertEquals(false, notNull.get("nickname"));
+	}
+
+	@Test
+	void basicOptionalFalseMarksAttribute() throws Exception {
+		assertEquals(true, petNotNull().get("code"));
+	}
+
+	@Test
+	void idIsNeverNotNull() throws Exception {
+		assertEquals(false, petNotNull().get("id"));
+	}
 }

@@ -33,6 +33,9 @@ public final class EntityMermaidRenderer {
 				if (a.foreignKey()) {
 					sb.append(" FK");
 				}
+				if (a.notNull()) {
+					sb.append(" \"not null\"");
+				}
 				sb.append('\n');
 			}
 			sb.append(INDENT).append("}\n");
@@ -45,10 +48,11 @@ public final class EntityMermaidRenderer {
 	}
 
 	private static String symbol(EntityView.Relationship r) {
+		String one = r.required() || r.inferred() ? "||" : "o|";
 		String symbol = switch (r.cardinality()) {
-		case MANY_TO_ONE -> "}o--||";
+		case MANY_TO_ONE -> "}o--" + one;
 		case ONE_TO_MANY -> "||--o{";
-		case ONE_TO_ONE -> "||--||";
+		case ONE_TO_ONE -> "||--" + one;
 		case MANY_TO_MANY -> "}o--o{";
 		};
 		return r.inferred() ? symbol.replace("--", "..") : symbol;

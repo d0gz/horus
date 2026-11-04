@@ -13,6 +13,7 @@ import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.BooleanLiteralExpr;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
@@ -88,11 +89,13 @@ public final class EntityExtractor {
 				if (cardinality == null || hasMappedBy(a)) {
 					continue;
 				}
+				boolean required = isToOne(cardinality)
+						&& (isFalse(a, "optional") || hasFalseMember(fd, "JoinColumn", "nullable"));
 				for (VariableDeclarator v : fd.getVariables()) {
 					String target = targetOf(v.getType());
 					if (entityNames.contains(target)) {
 						relationships.add(new EntityView.Relationship(td.getNameAsString(), target, cardinality,
-								v.getNameAsString()));
+								v.getNameAsString(), false, required));
 					}
 				}
 			}
@@ -186,6 +189,21 @@ public final class EntityExtractor {
 		return type instanceof ClassOrInterfaceType cit ? cit.getNameAsString() : type.asString();
 	}
 
+	private static boolean isToOne(EntityView.Cardinality cardinality) {
+		return cardinality == EntityView.Cardinality.MANY_TO_ONE || cardinality == EntityView.Cardinality.ONE_TO_ONE;
+	}
+
+	private static boolean hasFalseMember(FieldDeclaration fd, String annotation, String member) {
+		return fd.getAnnotations().stream()
+				.anyMatch(a -> annotation.equals(a.getName().getIdentifier()) && isFalse(a, member));
+	}
+
+	private static boolean isFalse(AnnotationExpr a, String member) {
+		return a instanceof NormalAnnotationExpr n && n.getPairs().stream()
+				.anyMatch(p -> member.equals(p.getNameAsString()) && p.getValue() instanceof BooleanLiteralExpr b
+						&& !b.getValue());
+	}
+
 	private static boolean hasMappedBy(AnnotationExpr a) {
 		return a instanceof NormalAnnotationExpr n
 				&& n.getPairs().stream().anyMatch(p -> "mappedBy".equals(p.getNameAsString()));
@@ -214,11 +232,16 @@ public final class EntityExtractor {
 				continue;
 			}
 			boolean pk = hasAnyAnnotation(fd, Set.of(ID));
+			boolean notNull = !hasAnyAnnotation(fd, ID_ANNOTATIONS)
+					&& (hasFalseMember(fd, "Column", "nullable") || hasFalseMember(fd, "Basic", "optional"));
+
 			for (VariableDeclarator v : fd.getVariables()) {
 				String ref = targetOf(v.getType());
 				boolean fk = !pk && !isCollection(v.getType()) && owners.containsKey(ref)
 						&& ownId.filter(ref::equals).isEmpty();
-				attributes.add(new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk));
+
+				attributes.add(
+						new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk, notNull));
 			}
 		}
 		return attributes;
