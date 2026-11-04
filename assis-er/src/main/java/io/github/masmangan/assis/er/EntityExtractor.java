@@ -1,11 +1,14 @@
 package io.github.masmangan.assis.er;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
@@ -15,6 +18,7 @@ import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 
+import io.github.masmangan.assis.er.types.CollectionTypes;
 import io.github.masmangan.assis.internal.DeclaredIndex;
 
 /**
@@ -28,6 +32,8 @@ public final class EntityExtractor {
 
 	private static final String ENTITY = "Entity";
 	private static final String ID = "Id";
+	private static final Set<String> ID_ANNOTATIONS = Set.of(ID, "EmbeddedId");
+	private static final Set<String> ID_STYLE_BASES = Set.of("AbstractEntity", "AbstractVersionedEntity");
 	private static final Map<String, EntityView.Cardinality> CARDINALITIES = Map.of(
 			"ManyToOne", EntityView.Cardinality.MANY_TO_ONE,
 			"OneToMany", EntityView.Cardinality.ONE_TO_MANY,
@@ -53,14 +59,23 @@ public final class EntityExtractor {
 			}
 		}
 		Set<String> names = new HashSet<>();
-		List<EntityView.Entity> entities = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
 			names.add(td.getNameAsString());
-			entities.add(new EntityView.Entity(td.getNameAsString(), attributesOf(td)));
+		}
+		Set<String> projectTypes = new HashSet<>();
+		for (TypeDeclaration<?> td : index.typesInIndexOrder()) {
+			projectTypes.add(td.getNameAsString());
+		}
+		Map<String, String> owners = idOwners(types, projectTypes, names);
+		List<EntityView.Entity> entities = new ArrayList<>();
+		for (TypeDeclaration<?> td : types) {
+			entities.add(new EntityView.Entity(td.getNameAsString(),
+					attributesOf(td)));
 		}
 		List<EntityView.Relationship> relationships = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
 			relationships.addAll(relationshipsOf(td, names));
+			relationships.addAll(inferredOf(td, owners, idTypeOf(td, projectTypes, names)));
 		}
 		return new EntityView(entities, relationships);
 	}
@@ -83,6 +98,84 @@ public final class EntityExtractor {
 			}
 		}
 		return relationships;
+	}
+
+	/** ID type simple name to owning entity; ID types claimed by several entities are dropped. */
+	private static Map<String, String> idOwners(List<TypeDeclaration<?>> types, Set<String> projectTypes,
+			Set<String> entityNames) {
+		Map<String, String> owners = new HashMap<>();
+		Set<String> ambiguous = new HashSet<>();
+		for (TypeDeclaration<?> td : types) {
+			idTypeOf(td, projectTypes, entityNames).ifPresent(id -> {
+				if (owners.putIfAbsent(id, td.getNameAsString()) != null) {
+					ambiguous.add(id);
+				}
+			});
+		}
+		owners.keySet().removeAll(ambiguous);
+		return owners;
+	}
+
+	/** @Id/@EmbeddedId field type, else the type argument of a known ID-style base. */
+	private static Optional<String> idTypeOf(TypeDeclaration<?> td, Set<String> projectTypes,
+			Set<String> entityNames) {
+		for (FieldDeclaration fd : td.getFields()) {
+			if (hasAnyAnnotation(fd, ID_ANNOTATIONS)) {
+				String type = simpleName(fd.getElementType());
+				if (isIdCandidate(type, projectTypes, entityNames)) {
+					return Optional.of(type);
+				}
+				break;
+			}
+		}
+		if (td instanceof ClassOrInterfaceDeclaration cd) {
+			for (ClassOrInterfaceType base : cd.getExtendedTypes()) {
+				var args = base.getTypeArguments();
+				if (ID_STYLE_BASES.contains(base.getNameAsString()) && args.isPresent() && args.get().size() == 1) {
+					String type = simpleName(args.get().get(0));
+					if (isIdCandidate(type, projectTypes, entityNames)) {
+						return Optional.of(type);
+					}
+				}
+			}
+		}
+		return Optional.empty();
+	}
+
+	private static boolean isIdCandidate(String type, Set<String> projectTypes, Set<String> entityNames) {
+		return projectTypes.contains(type) && !entityNames.contains(type);
+	}
+
+	private static List<EntityView.Relationship> inferredOf(TypeDeclaration<?> td, Map<String, String> owners,
+			Optional<String> ownId) {
+		List<EntityView.Relationship> relationships = new ArrayList<>();
+		for (FieldDeclaration fd : td.getFields()) {
+			if (fd.isStatic() || fd.isTransient() || hasAnyAnnotation(fd, NOT_ATTRIBUTES)
+					|| hasAnyAnnotation(fd, ID_ANNOTATIONS)) {
+				continue;
+			}
+			for (VariableDeclarator v : fd.getVariables()) {
+				String idType = targetOf(v.getType());
+				String target = owners.get(idType);
+				if (target == null || ownId.filter(idType::equals).isPresent()) {
+					continue;
+				}
+				EntityView.Cardinality cardinality = isCollection(v.getType()) ? EntityView.Cardinality.ONE_TO_MANY
+						: EntityView.Cardinality.MANY_TO_ONE;
+				relationships.add(new EntityView.Relationship(td.getNameAsString(), target, cardinality,
+						v.getNameAsString(), true));
+			}
+		}
+		return relationships;
+	}
+
+	/** Known collection types hold many IDs; Optional and unknown generics are single-valued. */
+	private static boolean isCollection(Type type) {
+		return type instanceof ClassOrInterfaceType cit && CollectionTypes.isCollection(cit.getNameAsString());
+	}
+
+	private static String simpleName(Type type) {
+		return type instanceof ClassOrInterfaceType cit ? cit.getNameAsString() : type.asString();
 	}
 
 	private static boolean hasMappedBy(AnnotationExpr a) {

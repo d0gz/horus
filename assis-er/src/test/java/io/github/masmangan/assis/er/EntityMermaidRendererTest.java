@@ -107,4 +107,16 @@ class EntityMermaidRendererTest {
 		assertEquals("erDiagram\n    \"Owner\" {\n        Long id PK\n        String name\n    }\n    \"Pet\"\n"
 				+ "    \"Pet\" }o--|| \"Owner\" : \"owner\"\n", EntityMermaidRenderer.render(view));
 	}
+
+	@Test
+	void rendersInferredRelationshipDotted() {
+		EntityView view = new EntityView(List.of(new EntityView.Entity("Visit"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Visit", "Pet", EntityView.Cardinality.MANY_TO_ONE, "petId", true),
+						new EntityView.Relationship("Owner", "Pet", EntityView.Cardinality.ONE_TO_MANY, "petIds", true)));
+
+		String out = EntityMermaidRenderer.render(view);
+
+		assertTrue(out.contains("    \"Visit\" }o..|| \"Pet\" : \"petId\"\n"), out);
+		assertTrue(out.contains("    \"Owner\" ||..o{ \"Pet\" : \"petIds\"\n"), out);
+	}
 }

@@ -27,9 +27,15 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	}
 
 	/**
-	 * @param label owning field name
+	 * @param label    owning field name
+	 * @param inferred true when deduced from an ID-typed field rather than a JPA
+	 *                 relationship annotation; cardinality is then assumed
 	 */
-	public record Relationship(String from, String to, Cardinality cardinality, String label) {
+	public record Relationship(String from, String to, Cardinality cardinality, String label, boolean inferred) {
+
+		public Relationship(String from, String to, Cardinality cardinality, String label) {
+			this(from, to, cardinality, label, false);
+		}
 	}
 
 	/**

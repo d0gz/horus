@@ -138,4 +138,87 @@ class EntityExtractorTest {
 	void returnsEmptyViewWhenNoEntities() throws Exception {
 		assertEquals(List.of(), entityNamesIn("samples/entitynone"));
 	}
+
+	private List<String> inferred() throws Exception {
+		return extractFrom("samples/inferred").relationships().stream()
+				.map(r -> r.from() + "->" + r.to() + " " + r.cardinality() + " " + r.label() + (r.inferred() ? " ~" : ""))
+				.toList();
+	}
+
+	@Test
+	void infersManyToOneFromIdTypeOfSuperclassGeneric() throws Exception {
+		assertTrue(inferred().contains("Visit->Pet MANY_TO_ONE petId ~"), inferred().toString());
+	}
+
+	@Test
+	void infersFromIdFieldType() throws Exception {
+		assertTrue(inferred().contains("Pet->Owner MANY_TO_ONE ownerId ~"), inferred().toString());
+	}
+
+	@Test
+	void doesNotInferFromOwnIdType() throws Exception {
+		assertTrue(inferred().stream().noneMatch(r -> r.startsWith("Visit->Visit")), inferred().toString());
+	}
+
+	@Test
+	void infersOneToManyFromIdCollection() throws Exception {
+		assertTrue(inferred().contains("Owner->Pet ONE_TO_MANY petIds ~"), inferred().toString());
+	}
+
+	@Test
+	void annotatedFieldIsNotAlsoInferred() throws Exception {
+		List<String> rels = inferred();
+
+		assertTrue(rels.contains("Visit->Pet MANY_TO_ONE pet"), rels.toString());
+		assertEquals(1, rels.stream().filter(r -> r.contains(" pet ") || r.endsWith(" pet")).count(), rels.toString());
+	}
+
+	@Test
+	void ignoresGenericOfNonIdStyleBase() throws Exception {
+		assertTrue(inferred().stream().noneMatch(r -> r.contains("Order")), inferred().toString());
+	}
+
+	@Test
+	void skipsIdTypeOwnedBySeveralEntities() throws Exception {
+		assertTrue(inferred().stream().noneMatch(r -> r.contains("sharedId")), inferred().toString());
+	}
+
+	@Test
+	void skipsJdkTypedIds() throws Exception {
+		assertTrue(inferred().stream().noneMatch(r -> r.contains("ownerNumber")), inferred().toString());
+	}
+
+	@Test
+	void idFieldWinsOverSuperclassGeneric() throws Exception {
+		List<String> rels = inferred();
+
+		assertTrue(rels.contains("Visit->Vet MANY_TO_ONE vetId ~"), rels.toString());
+		assertTrue(rels.stream().noneMatch(r -> r.contains("otherId")), rels.toString());
+	}
+
+	@Test
+	void jdkTypedIdFieldFallsBackToSuperclassGeneric() throws Exception {
+		assertTrue(inferred().contains("Visit->Clinic MANY_TO_ONE clinicId ~"), inferred().toString());
+	}
+
+	@Test
+	void optionalAndUnknownGenericsAreManyToOne() throws Exception {
+		assertTrue(inferred().contains("Shelter->Pet MANY_TO_ONE mascot ~"), inferred().toString());
+		assertTrue(inferred().contains("Shelter->Pet MANY_TO_ONE featured ~"), inferred().toString());
+	}
+
+	@Test
+	void mapOfIdsIsOneToMany() throws Exception {
+		assertTrue(inferred().contains("Shelter->Pet ONE_TO_MANY pets ~"), inferred().toString());
+	}
+
+	@Test
+	void inferredSampleRelationshipsInOrder() throws Exception {
+		assertEquals(List.of("Owner->Pet ONE_TO_MANY petIds ~", "Pet->Owner MANY_TO_ONE ownerId ~",
+				"Shelter->Pet MANY_TO_ONE mascot ~", "Shelter->Pet ONE_TO_MANY pets ~",
+				"Shelter->Pet MANY_TO_ONE featured ~",
+				"Visit->Pet MANY_TO_ONE pet", "Visit->Pet MANY_TO_ONE petId ~", "Visit->Vet MANY_TO_ONE vetId ~",
+				"Visit->Clinic MANY_TO_ONE clinicId ~"),
+				inferred());
+	}
 }

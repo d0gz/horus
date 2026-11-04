@@ -42,6 +42,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 2 | Attributes: fields, Java types (generics with `~`), `@Id` → `PK`, transient fields excluded | **Done** |
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
+| 5 | Inferred relationships from ID-typed fields (dotted `..` lines) | **Done** |
 
 Out of scope for now (deferred, no part assigned): inheritance and value types —
 `@MappedSuperclass`, `@Embeddable`/`@Embedded`, `@Inheritance`.
@@ -395,6 +396,7 @@ Out: optionality and constraints (see Known limitations), `@JoinTable`/`@JoinCol
 |---|----------|--------|
 | D11 | Cardinality fixed per annotation: `@ManyToOne` → `}o--\|\|`, `@OneToMany` → `\|\|--o{`, `@OneToOne` → `\|\|--\|\|`, `@ManyToMany` → `}o--o{` | Simplest, predictable; optionality deferred. |
 | D12 | Relationship lines come after all entity lines/blocks, ordered by entity (index order) then field declaration order | Deterministic output. |
+| D17 | Inferred cardinality: known collection types give one-to-many; everything else (plain, `Optional`, unknown generics) gives many-to-one | Unknown generics cannot be resolved from source; the dotted line already signals the assumption. |
 | D13 | Label is the owning field name, quoted (`: "owner"`) | Java names (D7). |
 
 Syntax verified against `erDiagram.jison` (mermaid@11.4.1): quoted names on both sides, all four cardinalities, self-reference, lines after attribute blocks.
@@ -554,3 +556,112 @@ Existing `AssisAppTest` cases keep passing unchanged.
 Implementation note: the existing `generatesDiagramFromDefaults` and
 `generatesDiagramFromHelloUsingSourcepathOnly` tests write into the real
 `docs/diagrams/src/`; their cleanup now also deletes `entity-diagram.mmd`.
+
+## Part 5 — Inferred relationships (reference by ID)
+
+### Scope
+
+Entities that reference others only by an ID value (DDD / jpearl style) have no
+`@OneToMany`/`@ManyToOne`, so Part 3 emits nothing. Example (petclinic):
+
+```java
+@Entity
+public class Visit extends AbstractEntity<VisitId> {
+  private OwnerId ownerId;
+  private PetId petId;
+}
+public class Pet extends AbstractEntity<PetId> { ... }
+```
+
+Infer these links from ID types, and render them distinctly from JPA mappings.
+
+### Approach
+
+1. **ID map (first pass, after all entities are collected):** build
+   `idType → entity` from, in priority order:
+   - the type of the `@Id` / `@EmbeddedId` field, when it is a project class
+     that is not an entity;
+   - otherwise (no such field, **or its type is a JDK type such as `Long`**) the
+     single generic argument of a known ID-style superclass
+     (`AbstractEntity<PetId>` → `PetId` ↦ `Pet`). The known bases are a fixed
+     list: `AbstractEntity`, `AbstractVersionedEntity`. The argument must be a
+     project class that is not itself an entity.
+2. **Inference (second pass):** for each field with no relationship annotation,
+   if its type (or a collection's element type) is in the map and is not the
+   entity's own ID type, emit an inferred relationship to the mapped entity.
+3. **Render** inferred relationships with Mermaid's non-identifying (dotted)
+   line `..`, labelled with the field name.
+
+### Cardinality
+
+Without annotations cardinality cannot be known; use a fixed assumption:
+
+| Field shape | Assumed | Could also be |
+|-------------|---------|---------------|
+| `PetId petId` | many-to-one `}o..\|\|` | one-to-one |
+| `Set<PetId> petIds`, `Map<String, PetId>` (known collection types) | one-to-many `\|\|..o{` from owner side | many-to-many |
+| `Optional<PetId>`, unknown generic `Wrapper<PetId>` | many-to-one `}o..\|\|` | one-to-one |
+
+Known collection types (matched by simple name): `Collection`, `List`, `Set`,
+`SortedSet`, `NavigableSet`, `Queue`, `Deque`, `Iterable`, `Map`, `SortedMap`,
+`NavigableMap`; the list lives in `er.types.CollectionTypes`. The target is the last type argument. Any other type, generic or
+not, is treated as single-valued, because a custom generic cannot be resolved from
+source alone (decision D17).
+
+The dotted line is what signals "inferred, cardinality assumed".
+
+### False positives and mitigations
+
+| Risk | Example | Mitigation |
+|------|---------|------------|
+| Superclass generic is not the ID | `AbstractAggregateRoot<Order>` (self type), `Auditable<User, Long>` | Prefer `@Id` field type; only read generics of known ID-style bases; argument must be a non-entity project class |
+| Shared / raw ID type | several entities with `Long`, `UUID` or a shared `EntityId` | Skip JDK types; if one ID type maps to more than one entity, infer nothing for it |
+| ID stored for non-link reasons | `createdBy UserId`, `previousPetId` | Accepted: still a real reference; dotted line marks it as inferred |
+| IDs inside embeddables / DTOs | `@Embeddable Address { OwnerId ownerId; }` | Only `@Entity` fields are scanned |
+
+Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by the dotted line.
+
+### Known limitations
+
+- Raw-typed IDs (`UUID ownerId`, `Long ownerId`) are not matched. A name-based
+  fallback (`<entity>Id` → entity) is a possible future opt-in flag, not in scope.
+- IDs whose owning entity is outside the scanned sources are ignored.
+- ID types are matched by simple name; same-named ID classes in different packages are not distinguished.
+- A custom generic wrapper around an ID is assumed single-valued, even if it is really a collection.
+- No `PK`/`FK` markers for inferred references or for IDs inherited from external bases (e.g. jpearl `AbstractEntity`); deferred.
+- Inferred relationships are always on; there is no flag to disable them yet.
+
+### Components (changes)
+
+- `EntityView`: relationship gains `inferred` flag (secondary constructor keeps earlier callers compiling).
+- `EntityExtractor`: collect ID type per entity; add inference pass.
+- `EntityMermaidRenderer`: `..` instead of `--` when `inferred`.
+- Ordering: inferred relationships are emitted per entity right after that entity's
+  annotated ones (refines D12: entity order, then annotated, then inferred).
+- Samples: `samples/inferred/` with `AbstractEntity<XId>`-style entities.
+
+### Required test cases
+
+| ID | Input | Expected |
+|----|-------|----------|
+| I1 | `Visit` with `PetId petId`, `Pet extends AbstractEntity<PetId>` | `"Visit" }o..\|\| "Pet" : "petId"` |
+| I2 | Entity with `@Id OwnerId id` and another entity with `OwnerId ownerId` | inferred relationship to owner |
+| I3 | Entity's own ID field | no self relationship |
+| I4 | `Set<PetId> petIds` | collection relationship, dotted |
+| I5 | ID type with no owning entity in sources | no relationship |
+| I6 | Field already annotated `@ManyToOne` | only the Part 3 relationship, no duplicate |
+| I7 | Entity `extends AbstractAggregateRoot<Order>`, another entity with `Order`-typed non-annotated field | no inferred relationship from the generic |
+| I8 | Two entities whose `@Id` type is the same `EntityId` class; third entity has `EntityId ref` | no inferred relationship (ambiguous) |
+| I9 | Entities with `@Id Long id`; another entity has `Long ownerId` | no inferred relationship (JDK type) |
+| I10 | Entity with `@Id PetId id` and superclass `Base<Other>` | `PetId` ↦ entity (`@Id` wins over generic) |
+| I13 | `Optional<PetId>` and unknown `Wrapper<PetId>` | many-to-one |
+| I14 | `Map<String, PetId>` | one-to-many |
+| I11 | Entity with `@Id Long number` and `extends AbstractEntity<ClinicId>` | `ClinicId` ↦ entity (JDK-typed `@Id` falls back to the generic) |
+
+Existing Part 3 tests keep passing unchanged.
+
+### Done when
+
+- I1–I14 pass, plus `mvn test` from the root.
+- Running against `../petclinic` shows `Visit` linked to `Owner`, `Pet`, `Veterinarian`.
+- `graphify update .` run. No commits.
