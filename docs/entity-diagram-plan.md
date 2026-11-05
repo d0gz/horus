@@ -43,8 +43,8 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | 3 | Relationships: `@ManyToOne`, `@OneToMany`, `@OneToOne`, `@ManyToMany`, fixed cardinality per annotation, `mappedBy` dedupe | **Done** |
 | 4 | Wiring: `--er` / `--class` CLI flags, user docs | **Done** |
 | 5 | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | **Done** |
-| 6 | Optionality and nullability: required/optional relationship ends, `not null` on columns | **Done** |
-| 7 | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | Planned |
+| 6 | Optionality and nullability: required/optional relationship ends, `?` on nullable column types | **Done** |
+| 7 | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | **Done** |
 | 8 | Inherited attributes: `PK` from ID-style bases and fields of non-entity superclasses | Planned |
 
 Out of scope for now (deferred, no part assigned): value types and entity
@@ -419,7 +419,7 @@ erDiagram
    public record EntityView(List<Entity> entities, List<Relationship> relationships) {
        public EntityView(List<Entity> entities) { this(entities, List.of()); }   // keeps Part 1–2 callers
    }
-   public enum Cardinality { MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY }
+   // Cardinality lives in types/Cardinality.java (enum: MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY)
    public record Relationship(String from, String to, Cardinality cardinality, String label) {}
    ```
 
@@ -682,12 +682,14 @@ In:
   `@OneToOne`:
   - required (`optional = false`, or `@JoinColumn(nullable = false)`) → `||`;
   - otherwise (JPA default is `optional = true`) → `o|` (zero or one).
-- **Columns.** Attributes with `@Column(nullable = false)` or `@Basic(optional = false)`
-  are marked `not null`.
+- **Columns.** A nullable attribute gets `?` after its (converted) type: `String? name`,
+  `List~String~? tags`. An attribute is nullable unless it is an `@Id`/`@EmbeddedId`
+  field, has a Java primitive type (`int`, `long`, `boolean`, ...), or carries
+  `@Column(nullable = false)` / `@Basic(optional = false)`. No comment is emitted; the
+  line is `<type>[?] <name> [PK|FK]`.
 
 Out:
 - `@NotNull`/`@NonNull` (Bean Validation, Lombok): not JPA constraints; possible opt-in later.
-- Primitive types (`int`) as implicitly not null.
 - `@OneToMany` / `@ManyToMany` ends and `@JoinTable` constraints.
 - Inferred (Part 5) relationships: no annotation, so no constraint; they keep the assumed
   `}o..||`.
@@ -699,11 +701,12 @@ Out:
 |---|----------|--------|
 | D18 | Annotated `@ManyToOne` defaults to `}o--o\|` (optional), required becomes `}o--\|\|`; `@OneToOne` defaults to `\|\|--o\|`, required stays `\|\|--\|\|` | Follows the JPA default (`optional = true`). **This changes the default output of every annotated `@ManyToOne`/`@OneToOne`** (R11, R13 and related tests are updated). |
 | D19 | When sources disagree (`optional = true` but `@JoinColumn(nullable = false)`), required wins | The column constraint is what the database enforces. |
-| D20 | Nullability of a column is shown as the attribute comment `"not null"` | Mermaid attribute keys are only `PK`, `FK`, `UK`; there is no NOT NULL marker. |
-| D21 | `@Id` fields are never marked `not null` | Already implied by `PK`. |
+| D20 | Nullability of a column is shown as `?` after the type (`String? name`), not as a comment; not-null columns print the type unchanged | User's choice: reads like Kotlin/C# nullable types and keeps the comment free. **Not valid Mermaid** (see Known limitations). This changes the output of every nullable attribute (Part 2 expectations updated). |
+| D21 | `@Id`/`@EmbeddedId` fields and Java primitives never get `?` | An id is implied not null by `PK`; a primitive cannot hold null. |
 
-Syntax to verify against `erDiagram.jison` (mermaid@11.4.1) before implementing: `o|`
-on the right-hand side, and an attribute comment after the keys (`Long id PK "comment"`).
+Syntax verified against `erDiagram.jison` (mermaid@11.4.1): `o|` is accepted on the
+right-hand side. `?` is **not** accepted in the attribute type token (11.4.1 and
+12.3.0).
 
 ### Output
 
@@ -711,7 +714,8 @@ on the right-hand side, and an attribute comment after the keys (`Long id PK "co
 erDiagram
     "Pet" {
         Long id PK
-        String name "not null"
+        String name
+        String? nickname
     }
     "Pet" }o--o| "Owner" : "owner"
     "Pet" }o--|| "Clinic" : "clinic"
@@ -720,14 +724,14 @@ erDiagram
 ### Components (changes)
 
 - `EntityView`: `Relationship` gains `boolean required` (default constructor value
-  `false`); `Attribute` gains `boolean notNull`. Secondary constructors keep earlier callers
-  compiling.
+  `false`); `Attribute` gains `boolean nullable`. Secondary constructors keep earlier callers
+  compiling and default `nullable` to `false`, so their output has no `?`.
 - `EntityExtractor`: `relationshipsOf` reads the annotation members (`optional`) and an
   accompanying `@JoinColumn(nullable)`; `attributesOf` reads `@Column(nullable)` and
-  `@Basic(optional)`.
+  `@Basic(optional)`, and skips ids and primitive types.
 - `EntityMermaidRenderer`: `symbol` picks `o|` or `||` for the target end of annotated
-  `MANY_TO_ONE`/`ONE_TO_ONE` (inferred ones unchanged); attributes with `notNull` append
-  `"not null"` after the keys.
+  `MANY_TO_ONE`/`ONE_TO_ONE` (inferred ones unchanged); attributes with `nullable` get
+  `?` after the type.
 
 ### Required test cases
 
@@ -740,7 +744,7 @@ Renderer — `EntityMermaidRendererTest`:
 | N3 | `ONE_TO_ONE`, not required / required | `\|\|--o\|` / `\|\|--\|\|` |
 | N4 | `ONE_TO_MANY`, `MANY_TO_MANY` | unchanged |
 | N5 | Inferred `MANY_TO_ONE` | `}o..\|\|` unchanged |
-| N6 | Attribute `notNull` with and without `PK` keys | `String name "not null"` |
+| N6 | Attribute `nullable` / not nullable, with `PK`/`FK` keys, generic type, old constructor | `String? name`, `List~String~? tags`, `OwnerId? ownerId FK`, `String code`; old constructor has no `?` |
 
 Extractor — `EntityExtractorTest`, new sample `samples/optionality/`:
 
@@ -751,9 +755,10 @@ Extractor — `EntityExtractorTest`, new sample `samples/optionality/`:
 | O3 | `@ManyToOne @JoinColumn(nullable = false)` | required |
 | O4 | `@ManyToOne(optional = true) @JoinColumn(nullable = false)` | required (D19) |
 | O5 | `@OneToOne` optional / `@OneToOne(optional = false)` | not required / required |
-| O6 | `@Column(nullable = false) String name` | attribute `notNull` |
-| O7 | `@Basic(optional = false) String code` | attribute `notNull` |
-| O8 | `@Id` field | never `notNull` |
+| O6 | `@Column(nullable = false) String name` / plain `String nickname` | not `nullable` / `nullable` |
+| O7 | `@Basic(optional = false) String code` | not `nullable` |
+| O8 | `@Id` field (even with `@Column(nullable = false)`) | never `nullable` |
+| O9 | Primitive fields (`int a, b`) | never `nullable` |
 
 End-to-end — `GenerateEntityDiagramSampleTest`:
 
@@ -763,8 +768,14 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 
 ### Done when
 
-- N1–N6, O1–O8 and G9 pass, plus `mvn test` from the root; Part 3 expected strings updated per D18.
+- N1–N6, O1–O9 and G9 pass, plus `mvn test` from the root; Part 3 expected strings updated per D18.
 - `graphify update .` run. No commits.
+
+### Known limitations
+
+- `?` after the attribute type is **not accepted by Mermaid's ER grammar** (mermaid
+  11.4.1 and 12.3.0): any diagram with a nullable column fails to render until Mermaid
+  supports it. The user chose this knowingly (D20).
 
 ---
 
@@ -775,10 +786,12 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 In:
 - **Entity.** `@Table(name = "owners")` → the table name is displayed, the Java class
   name stays as the Mermaid entity identifier: `"Owner"["owners"]`. Relationship lines
-  keep using `"Owner"`.
+  keep using `"Owner"`. A table name containing `"`, `%`, `\` or a line break (rejected
+  in a quoted Mermaid name) gets no alias: the entity is printed as `"Owner"` with a
+  `%% table: <tableName>` line directly above it (D26).
 - **Attribute.** `@Column(name = "full_name") String fullName` → the attribute is
-  shown with the **column name**, and the Java field name goes in the attribute comment:
-  `String full_name "fullName"`.
+  shown with the **column name**, and the Java field name goes in a `%%` comment line
+  directly above it (same indent): `%% fullName` then `String? full_name`.
 - Names are used only when the annotation gives a `name` that differs from the Java
   name; otherwise output is unchanged.
 
@@ -791,14 +804,14 @@ etc.), relationship labels (remain Java field names, D13).
 | # | Decision | Reason |
 |---|----------|--------|
 | D22 | Replaces D7: names from `@Table`/`@Column` are shown when present | Diagram matches the database. Replaces the earlier "Future" idea of putting the column name in the comment. |
-| D23 | The Mermaid entity identifier stays the Java class name; the table name is the alias | Relationships and tooling keep stable identifiers. |
-| D24 | If the column name is not a valid Mermaid attribute identifier (spaces, quotes), keep the Java field name as attribute and put the column name in the comment | Mermaid would reject the line. |
-| D25 | The comment is a comma-joined list: original Java name first, then `not null` (Part 6): `String full_name "fullName, not null"` | Mermaid allows a single comment per attribute. |
-| D26 | Double quotes inside names/comments are escaped | Valid Mermaid for any input. |
+| D23 | The Mermaid entity identifier stays the Java class name; the table name is the alias (when valid, D26) | Relationships and tooling keep stable identifiers. |
+| D24 | If the column name is not a valid Mermaid attribute identifier (spaces, quotes, `PK`/`FK`/`UK`), keep the Java field name as attribute and put `column: <columnName>` in the comment line | Mermaid would reject the line. |
+| D25 | The original name goes in a whole-line `%% <text>` comment directly above the attribute, never in the quoted attribute comment; nullability is shown separately (D20). Newlines in the text become spaces; the space after `%%` keeps it from being read as a `%%{` directive | `%%` comments are whole-line only (a trailing `%%` breaks the line) and are stripped before parsing, so they never affect the attribute line. |
+| D26 | No escaping. A table name is used as alias only when it has no `"`, `%`, `\` or line break (the `ENTITY_NAME` token); otherwise the entity has no alias and a `%% table: <tableName>` line (4-space indent) goes directly above it | Quoted entity names reject these characters, and entity codes such as `#quot;` are not decoded inside ER aliases (verified in Mermaid: they render as literal text). `%%` lines need no escaping. |
 
-Syntax to verify against `erDiagram.jison` (mermaid@11.4.1) before implementing: entity
-alias `"Owner"["owners"]` (supported from Mermaid 10.5), attribute comment after keys,
-and which column-name characters are accepted (D24).
+Syntax verified against `erDiagram.jison` (mermaid@11.4.1): entity alias
+`"Owner"["owners"]` (supported from Mermaid 10.5) and the accepted attribute-name
+characters `[*A-Za-z_][A-Za-z0-9\-_\[\]()]*` (D24).
 
 ### Output
 
@@ -806,8 +819,13 @@ and which column-name characters are accepted (D24).
 erDiagram
     "Owner"["owners"] {
         Long id PK
-        String full_name "fullName"
-        String email "not null"
+        %% fullName
+        String? full_name
+        String email
+    }
+    %% table: pet%stats
+    "Stats" {
+        Long id PK
     }
     "Pet" }o--o| "Owner" : "owner"
 ```
@@ -819,8 +837,9 @@ erDiagram
   the view keeps the Java names in `name` (D10).
 - `EntityExtractor`: read `@Table(name)` on the entity and `@Column(name)` on fields
   (annotations matched by simple name, D4; inherited fields included, Part 8).
-- `EntityMermaidRenderer`: emit the alias after the identifier, the column name as the
-  attribute name when valid (D24), and build the comment per D25/D26.
+- `EntityMermaidRenderer`: emit the alias after the identifier when the table name is
+  valid, else a `%% table:` line above the entity (D26); the column name as the
+  attribute name when valid (D24) and the `%%` comment line per D25.
 
 ### Required test cases
 
@@ -831,10 +850,10 @@ Renderer — `EntityMermaidRendererTest`:
 | T1 | Entity with `tableName` | `"Owner"["owners"] {` |
 | T2 | Entity without `tableName` | unchanged |
 | T3 | Relationship involving an aliased entity | line still uses `"Owner"` |
-| T4 | Attribute with `columnName` | `String full_name "fullName"` |
-| T5 | `columnName` plus `notNull` | `String full_name "fullName, not null"` |
-| T6 | Invalid column identifier | Java name as attribute, column name in comment |
-| T7 | Quote in a name | escaped |
+| T4 | Attribute with `columnName` | `%% fullName` line, then `String full_name` |
+| T5 | `columnName` plus `nullable` / `PK` | `%% fullName` + `String? full_name`; `%% id` + `Long owner_id PK` |
+| T6 | Invalid column identifier | `%% column: full name` + `String? fullName` |
+| T7 | Quote or newline in a column name; table name with `"`, `%` or `\` | comment line kept on one line, unescaped; no alias, `%% table: <tableName>` line above `"Owner"` |
 
 Extractor — `EntityExtractorTest`, new sample `samples/naming/`:
 
@@ -843,7 +862,7 @@ Extractor — `EntityExtractorTest`, new sample `samples/naming/`:
 | M1 | `@Table(name = "owners")` | `tableName` = `owners` |
 | M2 | `@Table` with only `schema`, or no `@Table` | `tableName` null |
 | M3 | `@Column(name = "full_name")` | `columnName` = `full_name`, `name` still `fullName` |
-| M4 | `@Column` without name, or name equal to the field | `columnName` null |
+| M4 | `@Column` without name, blank name, constant, or name equal to the field; blank `@Table` name | `columnName` / `tableName` null |
 | M5 | Inherited field with `@Column(name)` | `columnName` kept (Part 8) |
 
 End-to-end — `GenerateEntityDiagramSampleTest`:
@@ -854,8 +873,14 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 
 ### Done when
 
-- T1–T7, M1–M5 and G10 pass, plus `mvn test` from the root.
+- T1–T7, M1–M4 and G10 pass, plus `mvn test` from the root (M5 belongs to Part 8).
 - `graphify update .` run. No commits.
+
+### Known limitations
+
+- `%%` comment lines are not rendered in the final diagram; the original Java name, an
+  invalid column name and a table name that cannot be an alias are visible only in the
+  `.mmd` source.
 
 ---
 

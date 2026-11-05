@@ -1,11 +1,18 @@
 package io.github.masmangan.assis.er;
 
+import java.util.regex.Pattern;
+
 /**
  * Renders an EntityView as a Mermaid erDiagram.
  */
 public final class EntityMermaidRenderer {
 
 	private static final String INDENT = "    ";
+	/** ATTRIBUTE_WORD of erDiagram.jison, minus the case-insensitive key words. */
+	private static final Pattern ATTRIBUTE_WORD = Pattern
+			.compile("(?i)(?!(PK|FK|UK)$)[*A-Za-z_][A-Za-z0-9\\-_\\[\\]()]*");
+	/** ENTITY_NAME of erDiagram.jison; aliases are not unescaped. */
+	private static final Pattern ENTITY_NAME = Pattern.compile("[^\"%\\r\\n\\x0B\\x08\\\\]+");
 
 	private EntityMermaidRenderer() {
 	}
@@ -19,22 +26,34 @@ public final class EntityMermaidRenderer {
 	public static String render(EntityView view) {
 		StringBuilder sb = new StringBuilder("erDiagram\n");
 		for (EntityView.Entity entity : view.entities()) {
+			boolean alias = entity.tableName() != null && ENTITY_NAME.matcher(entity.tableName()).matches();
+			if (entity.tableName() != null && !alias) {
+				appendNote(sb, INDENT, "table: " + entity.tableName());
+			}
 			sb.append(INDENT).append('"').append(entity.name()).append('"');
+			if (alias) {
+				sb.append("[\"").append(entity.tableName()).append("\"]");
+			}
 			if (entity.attributes().isEmpty()) {
 				sb.append('\n');
 				continue;
 			}
 			sb.append(" {\n");
 			for (EntityView.Attribute a : entity.attributes()) {
-				sb.append(INDENT).append(INDENT).append(mermaidType(a.type())).append(' ').append(a.name());
+				String name = a.name();
+				if (a.columnName() != null && ATTRIBUTE_WORD.matcher(a.columnName()).matches()) {
+					name = a.columnName();
+					appendNote(sb, INDENT + INDENT, a.name());
+				} else if (a.columnName() != null) {
+					appendNote(sb, INDENT + INDENT, "column: " + a.columnName());
+				}
+				sb.append(INDENT).append(INDENT).append(mermaidType(a.type())).append(a.nullable() ? "?" : "")
+						.append(' ').append(name);
 				if (a.primaryKey()) {
 					sb.append(" PK");
 				}
 				if (a.foreignKey()) {
 					sb.append(" FK");
-				}
-				if (a.notNull()) {
-					sb.append(" \"not null\"");
 				}
 				sb.append('\n');
 			}
@@ -56,6 +75,11 @@ public final class EntityMermaidRenderer {
 		case MANY_TO_MANY -> "}o--o{";
 		};
 		return r.inferred() ? symbol.replace("--", "..") : symbol;
+	}
+
+	/** Whole-line Mermaid comment, so it never breaks the attribute line. */
+	private static void appendNote(StringBuilder sb, String indent, String note) {
+		sb.append(indent).append("%% ").append(note.replaceAll("[\\r\\n]+", " ")).append('\n');
 	}
 
 	/** Mermaid rejects dots and angle brackets in attribute types outside ~...~. */

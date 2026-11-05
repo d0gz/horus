@@ -2,6 +2,8 @@ package io.github.masmangan.assis.er;
 
 import java.util.List;
 
+import io.github.masmangan.assis.er.types.Cardinality;
+
 /**
  * In-memory model of the JPA entities found in a code base, independent of
  * JavaParser and of Mermaid.
@@ -20,10 +22,6 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 
 	public EntityView(List<Entity> entities) {
 		this(entities, List.of());
-	}
-
-	public enum Cardinality {
-		MANY_TO_ONE, ONE_TO_MANY, ONE_TO_ONE, MANY_TO_MANY
 	}
 
 	/**
@@ -49,11 +47,16 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	/**
 	 * @param name       simple name of the entity class
 	 * @param attributes persistent fields, in declaration order
+	 * @param tableName  Table name when it differs from the class name, else null
 	 */
-	public record Entity(String name, List<Attribute> attributes) {
+	public record Entity(String name, List<Attribute> attributes, String tableName) {
 
 		public Entity {
 			attributes = List.copyOf(attributes);
+		}
+
+		public Entity(String name, List<Attribute> attributes) {
+			this(name, attributes, null);
 		}
 
 		public Entity(String name) {
@@ -64,9 +67,16 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	/**
 	 * @param type       Java type as written in source
 	 * @param foreignKey true for a single-valued field inferred as an ID reference
-	 * @param notNull    true for Column nullable = false or Basic optional = false
+	 * @param nullable   true unless an id, a primitive, Column nullable = false or
+	 *                   Basic optional = false
+	 * @param columnName Column name when it differs from the field name, else null
 	 */
-	public record Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean notNull) {
+	public record Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean nullable,
+			String columnName) {
+
+		public Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean nullable) {
+			this(type, name, primaryKey, foreignKey, nullable, null);
+		}
 
 		public Attribute(String type, String name, boolean primaryKey, boolean foreignKey) {
 			this(type, name, primaryKey, foreignKey, false);

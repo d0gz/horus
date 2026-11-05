@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -240,10 +241,10 @@ class EntityExtractorTest {
 				.collect(Collectors.toMap(EntityView.Relationship::label, EntityView.Relationship::required));
 	}
 
-	private Map<String, Boolean> petNotNull() throws Exception {
+	private Map<String, Boolean> petNullable() throws Exception {
 		return extractFrom("samples/optionality").entities().stream().filter(e -> e.name().equals("Pet")).findFirst()
 				.orElseThrow().attributes().stream()
-				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::notNull));
+				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::nullable));
 	}
 
 	@Test
@@ -276,19 +277,87 @@ class EntityExtractorTest {
 
 	@Test
 	void columnNotNullableMarksAttribute() throws Exception {
-		Map<String, Boolean> notNull = petNotNull();
+		Map<String, Boolean> nullable = petNullable();
 
-		assertEquals(true, notNull.get("name"));
-		assertEquals(false, notNull.get("nickname"));
+		assertEquals(false, nullable.get("name"));
+		assertEquals(true, nullable.get("nickname"));
 	}
 
 	@Test
 	void basicOptionalFalseMarksAttribute() throws Exception {
-		assertEquals(true, petNotNull().get("code"));
+		assertEquals(false, petNullable().get("code"));
 	}
 
 	@Test
-	void idIsNeverNotNull() throws Exception {
-		assertEquals(false, petNotNull().get("id"));
+	void idIsNeverNullable() throws Exception {
+		assertEquals(false, petNullable().get("id"));
+	}
+
+	@Test
+	void primitivesAreNeverNullable() throws Exception {
+		Map<String, Boolean> nullable = ownerAttributes().stream()
+				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::nullable));
+
+		assertEquals(false, nullable.get("a"));
+		assertEquals(false, nullable.get("b"));
+		assertEquals(true, nullable.get("name"));
+		assertEquals(true, nullable.get("photo"));
+	}
+
+	private EntityView naming() throws Exception {
+		return extractFrom("samples/naming");
+	}
+
+	private EntityView.Entity namingEntity(String name) throws Exception {
+		return naming().entities().stream().filter(e -> e.name().equals(name)).findFirst().orElseThrow();
+	}
+
+	private Map<String, String> ownerColumns() throws Exception {
+		Map<String, String> columns = new LinkedHashMap<>();
+		namingEntity("Owner").attributes().forEach(a -> columns.put(a.name(), a.columnName()));
+		return columns;
+	}
+
+	@Test
+	void readsTableName() throws Exception {
+		assertEquals("owners", namingEntity("Owner").tableName());
+		assertEquals("pet%stats", namingEntity("Stats").tableName());
+	}
+
+	@Test
+	void tableWithoutNameOrEqualNameIsNull() throws Exception {
+		assertEquals(null, namingEntity("Pet").tableName());
+		assertEquals(null, namingEntity("Visit").tableName());
+		assertEquals(null, namingEntity("Vet").tableName());
+		assertEquals(null, extractFrom("samples/entity").entities().get(0).tableName());
+	}
+
+	@Test
+	void readsColumnNameKeepingJavaName() throws Exception {
+		Map<String, String> columns = ownerColumns();
+
+		assertEquals("full_name", columns.get("fullName"));
+		assertEquals("e_mail", columns.get("email"));
+		assertEquals("home address", columns.get("address"));
+	}
+
+	@Test
+	void columnWithoutNameEqualNameOrConstantIsNull() throws Exception {
+		Map<String, String> columns = ownerColumns();
+
+		assertEquals(null, columns.get("phone"));
+		assertEquals(null, columns.get("city"));
+		assertEquals(null, columns.get("note"));
+		assertTrue(columns.containsKey("id") && columns.get("id") == null);
+	}
+
+	@Test
+	void blankTableNameIsNull() throws Exception {
+		assertEquals(null, namingEntity("Tag").tableName());
+	}
+
+	@Test
+	void emptyColumnNameIsNull() throws Exception {
+		assertEquals(null, namingEntity("Tag").attributes().get(1).columnName());
 	}
 }

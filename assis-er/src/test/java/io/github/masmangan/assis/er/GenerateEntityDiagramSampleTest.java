@@ -41,13 +41,13 @@ class GenerateEntityDiagramSampleTest {
 				erDiagram
 				    "Owner" {
 				        Long id PK
-				        String name
+				        String? name
 				        int a
 				        int b
-				        List~String~ tags
-				        Map~String,List~Integer~~ scores
-				        LocalDate birth
-				        byte[] photo
+				        List~String~? tags
+				        Map~String,List~Integer~~? scores
+				        LocalDate? birth
+				        byte[]? photo
 				    }
 				    "Owner" }o--o| "Owner" : "parent"
 				""";
@@ -83,9 +83,9 @@ class GenerateEntityDiagramSampleTest {
 		expected.append("""
 				    "Pet" {
 				        Long id PK
-				        String name "not null"
-				        String code "not null"
-				        String nickname
+				        String name
+				        String code
+				        String? nickname
 				    }
 				""");
 		expected.append(block.formatted("Shelter"));
@@ -99,6 +99,46 @@ class GenerateEntityDiagramSampleTest {
 				""");
 
 		assertEquals(expected.toString(), generateInto(Set.of(sample("samples/optionality")), "out"));
+	}
+
+	@Test
+	void writesNamingForSample() throws Exception {
+		String expected = """
+				erDiagram
+				    "Owner"["owners"] {
+				        Long id PK
+				        %% fullName
+				        String? full_name
+				        %% email
+				        String e_mail
+				        String phone
+				        String? city
+				        %% column: home address
+				        String? address
+				        String? note
+				    }
+				    "Pet" {
+				        %% id
+				        Long pet_id PK
+				    }
+				    %% table: pet%stats
+				    "Stats" {
+				        Long id PK
+				    }
+				    "Tag" {
+				        Long id PK
+				        String? label
+				    }
+				    "Vet" {
+				        Long id PK
+				    }
+				    "Visit" {
+				        Long id PK
+				    }
+				    "Pet" }o--o| "Owner" : "owner"
+				""";
+
+		assertEquals(expected, generateInto(Set.of(sample("samples/naming")), "out"));
 	}
 
 	@Test

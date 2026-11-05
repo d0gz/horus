@@ -15,11 +15,13 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.BooleanLiteralExpr;
 import com.github.javaparser.ast.expr.NormalAnnotationExpr;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 
 import io.github.masmangan.assis.er.types.CollectionTypes;
+import io.github.masmangan.assis.er.types.Cardinality;
 import io.github.masmangan.assis.internal.DeclaredIndex;
 
 /**
@@ -35,11 +37,11 @@ public final class EntityExtractor {
 	private static final String ID = "Id";
 	private static final Set<String> ID_ANNOTATIONS = Set.of(ID, "EmbeddedId");
 	private static final Set<String> ID_STYLE_BASES = Set.of("AbstractEntity", "AbstractVersionedEntity");
-	private static final Map<String, EntityView.Cardinality> CARDINALITIES = Map.of(
-			"ManyToOne", EntityView.Cardinality.MANY_TO_ONE,
-			"OneToMany", EntityView.Cardinality.ONE_TO_MANY,
-			"OneToOne", EntityView.Cardinality.ONE_TO_ONE,
-			"ManyToMany", EntityView.Cardinality.MANY_TO_MANY);
+	private static final Map<String, Cardinality> CARDINALITIES = Map.of(
+			"ManyToOne", Cardinality.MANY_TO_ONE,
+			"OneToMany", Cardinality.ONE_TO_MANY,
+			"OneToOne", Cardinality.ONE_TO_ONE,
+			"ManyToMany", Cardinality.MANY_TO_MANY);
 	private static final Set<String> NOT_ATTRIBUTES = Set.of("Transient", "ManyToOne", "OneToMany", "OneToOne",
 			"ManyToMany");
 
@@ -71,7 +73,8 @@ public final class EntityExtractor {
 		List<EntityView.Entity> entities = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
 			entities.add(new EntityView.Entity(td.getNameAsString(),
-					attributesOf(td, owners, idTypeOf(td, projectTypes, names))));
+					attributesOf(td, owners, idTypeOf(td, projectTypes, names)),
+					nameIfDifferent(td, "Table", td.getNameAsString())));
 		}
 		List<EntityView.Relationship> relationships = new ArrayList<>();
 		for (TypeDeclaration<?> td : types) {
@@ -85,7 +88,7 @@ public final class EntityExtractor {
 		List<EntityView.Relationship> relationships = new ArrayList<>();
 		for (FieldDeclaration fd : td.getFields()) {
 			for (AnnotationExpr a : fd.getAnnotations()) {
-				EntityView.Cardinality cardinality = CARDINALITIES.get(a.getName().getIdentifier());
+				Cardinality cardinality = CARDINALITIES.get(a.getName().getIdentifier());
 				if (cardinality == null || hasMappedBy(a)) {
 					continue;
 				}
@@ -168,8 +171,8 @@ public final class EntityExtractor {
 				if (target == null || ownId.filter(idType::equals).isPresent()) {
 					continue;
 				}
-				EntityView.Cardinality cardinality = isCollection(v.getType()) ? EntityView.Cardinality.ONE_TO_MANY
-						: EntityView.Cardinality.MANY_TO_ONE;
+				Cardinality cardinality = isCollection(v.getType()) ? Cardinality.ONE_TO_MANY
+						: Cardinality.MANY_TO_ONE;
 				relationships.add(new EntityView.Relationship(td.getNameAsString(), target, cardinality,
 						v.getNameAsString(), true));
 			}
@@ -189,8 +192,8 @@ public final class EntityExtractor {
 		return type instanceof ClassOrInterfaceType cit ? cit.getNameAsString() : type.asString();
 	}
 
-	private static boolean isToOne(EntityView.Cardinality cardinality) {
-		return cardinality == EntityView.Cardinality.MANY_TO_ONE || cardinality == EntityView.Cardinality.ONE_TO_ONE;
+	private static boolean isToOne(Cardinality cardinality) {
+		return cardinality == Cardinality.MANY_TO_ONE || cardinality == Cardinality.ONE_TO_ONE;
 	}
 
 	private static boolean hasFalseMember(FieldDeclaration fd, String annotation, String member) {
@@ -202,6 +205,24 @@ public final class EntityExtractor {
 		return a instanceof NormalAnnotationExpr n && n.getPairs().stream()
 				.anyMatch(p -> member.equals(p.getNameAsString()) && p.getValue() instanceof BooleanLiteralExpr b
 						&& !b.getValue());
+	}
+
+	/**
+	 * Literal name member of the annotation, or null when absent, blank or equal
+	 * to the Java name.
+	 */
+	private static String nameIfDifferent(NodeWithAnnotations<?> n, String annotation, String javaName) {
+		for (AnnotationExpr a : n.getAnnotations()) {
+			if (annotation.equals(a.getName().getIdentifier()) && a instanceof NormalAnnotationExpr na) {
+				for (var p : na.getPairs()) {
+					if ("name".equals(p.getNameAsString()) && p.getValue() instanceof StringLiteralExpr str
+							&& !str.asString().isBlank() && !str.asString().equals(javaName)) {
+						return str.asString();
+					}
+				}
+			}
+		}
+		return null;
 	}
 
 	private static boolean hasMappedBy(AnnotationExpr a) {
@@ -232,16 +253,17 @@ public final class EntityExtractor {
 				continue;
 			}
 			boolean pk = hasAnyAnnotation(fd, Set.of(ID));
-			boolean notNull = !hasAnyAnnotation(fd, ID_ANNOTATIONS)
-					&& (hasFalseMember(fd, "Column", "nullable") || hasFalseMember(fd, "Basic", "optional"));
+			boolean nullable = !hasAnyAnnotation(fd, ID_ANNOTATIONS) && !hasFalseMember(fd, "Column", "nullable")
+					&& !hasFalseMember(fd, "Basic", "optional");
 
 			for (VariableDeclarator v : fd.getVariables()) {
 				String ref = targetOf(v.getType());
 				boolean fk = !pk && !isCollection(v.getType()) && owners.containsKey(ref)
 						&& ownId.filter(ref::equals).isEmpty();
 
-				attributes.add(
-						new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk, notNull));
+				attributes.add(new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk,
+						nullable && !v.getType().isPrimitiveType(),
+						nameIfDifferent(fd, "Column", v.getNameAsString())));
 			}
 		}
 		return attributes;
