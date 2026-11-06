@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.github.masmangan.assis.er.extract.EntityExtractor;
 import io.github.masmangan.assis.internal.DeclaredIndex;
 import io.github.masmangan.assis.io.SmartSourceRootManager;
 import io.github.masmangan.assis.util.DeterministicPathList;

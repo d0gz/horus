@@ -1,4 +1,4 @@
-package io.github.masmangan.assis.er;
+package io.github.masmangan.assis.er.extract;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.masmangan.assis.er.EntityView;
 import io.github.masmangan.assis.internal.DeclaredIndex;
 import io.github.masmangan.assis.io.SmartSourceRootManager;
 import io.github.masmangan.assis.util.DeterministicPathList;
