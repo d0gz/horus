@@ -50,7 +50,6 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | ER-CLI | Wiring: `--er` / `--class` CLI flags, user docs | ✅ Done |
 | ER-NULL | Optionality and nullability: required/optional relationship ends, `?` on nullable column types | ✅ Done |
 | ER-NAME | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | ✅ Done |
-| ER-INHERIT | Inherited attributes: fields of non-entity superclasses in the sources | ❌ Planned |
 
 Fixes (problems found in the default output, against the "never wrong" rule):
 
@@ -64,9 +63,9 @@ Status: ✅ done · ❌ not done · ⚠️ done with a warning or problem · �
 ERI-REF, ERI-ID and ERI-FLAG (inferred references, synthetic IDs, the opt-in flag) are in
 [`entity-diagram-inferred-plan.md`](entity-diagram-inferred-plan.md).
 
-Out of scope for now (deferred, no part assigned): value types and entity
-inheritance strategies — `@Embeddable`/`@Embedded`, `@Inheritance`. Inheritance from
-non-entity superclasses (including `@MappedSuperclass`) is covered by ER-INHERIT.
+Out of scope (deferred, no part assigned): value types and inheritance —
+`@Embeddable`/`@Embedded`, `@MappedSuperclass` and fields of superclasses, `@Inheritance`.
+An entity shows only the fields it declares itself.
 
 ### Future: naming option
 
@@ -739,7 +738,7 @@ erDiagram
   `String columnName` (nullable). Secondary constructors keep earlier callers compiling;
   the view keeps the Java names in `name` (D10).
 - `EntityExtractor`: read `@Table(name)` on the entity and `@Column(name)` on fields
-  (annotations matched by simple name, D4; inherited fields included, ER-INHERIT).
+  (annotations matched by simple name, D4).
 - `EntityMermaidRenderer`: emit the alias after the identifier when the table name is
   valid, else a `%% table:` line above the entity (D26); the column name as the
   attribute name when valid (D24) and the `%%` comment line per D25.
@@ -766,7 +765,6 @@ Extractor — `EntityExtractorTest`, new sample `samples/naming/`:
 | M2 | `@Table` with only `schema`, or no `@Table` | `tableName` null |
 | M3 | `@Column(name = "full_name")` | `columnName` = `full_name`, `name` still `fullName` |
 | M4 | `@Column` without name, blank name, constant, or name equal to the field; blank `@Table` name | `columnName` / `tableName` null |
-| M5 | Inherited field with `@Column(name)` | `columnName` kept (ER-INHERIT) |
 
 End-to-end — `GenerateEntityDiagramSampleTest`:
 
@@ -776,7 +774,7 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 
 ### Done when
 
-- T1–T7, M1–M4 and G10 pass, plus `mvn test` from the root (M5 belongs to ER-INHERIT).
+- T1–T7, M1–M4 and G10 pass, plus `mvn test` from the root .
 - `graphify update .` run. No commits.
 
 ### Known limitations
@@ -784,96 +782,6 @@ End-to-end — `GenerateEntityDiagramSampleTest`:
 - `%%` comment lines are not rendered in the final diagram; the original Java name, an
   invalid column name and a table name that cannot be an alias are visible only in the
   `.mmd` source.
-
----
-
-## ER-INHERIT — Inherited attributes
-
-### Scope
-
-Entities that inherit common fields (audit base classes, `@MappedSuperclass`)
-currently show only their own fields, so the table misses inherited columns (and its
-`PK` when the `@Id` is declared in the base).
-
-In:
-- For each entity, walk its `extends` chain, resolving superclasses by simple name in
-  the `DeclaredIndex` (project classes only).
-- Show inherited fields as attributes of the subclass entity, **ancestors first**
-  (farthest ancestor, ..., parent, then the entity's own fields).
-- Inherited fields follow the same rules as own fields: `static`/`transient`/
-  `@Transient` excluded, `@Id` → `PK`, ER-NULL nullability, ER-NAME column names, types
-  converted per D8/D9.
-- Inherited association fields draw relationship lines **from the subclass entity**
-  (same `mappedBy` and target rules as ER-REL).
-
-Out:
-- Fields of superclasses that are not in the scanned sources.
-- The synthetic `XId id PK` from known ID-style bases (`AbstractEntity<XId>`), which is
-  inferred from a class name: inferred plan, ERI-ID.
-- Superclasses that are themselves `@Entity`: such an entity keeps showing only its own
-  fields (`@Inheritance` strategies stay deferred).
-- `@Embeddable`/`@Embedded`.
-
-### Decisions
-
-| # | Decision | Reason |
-|---|----------|--------|
-| D29 | A field of an in-source generic base typed by its type parameter (`T id`) is shown with the actual argument (`XId`) | Raw `T` is meaningless in the diagram. |
-| D30 | A subclass field with the same name as an inherited one wins; the inherited one is skipped | Matches Java shadowing; no duplicate attributes. |
-| D31 | A superclass that is an `@Entity` stops the walk | Entity inheritance strategies are deferred. |
-| D32 | Cycles and unresolvable superclasses are ignored silently (walk stops) | Never fail diagram generation on partial sources. |
-
-### Output
-
-`@MappedSuperclass Auditable { @Id Long id; Instant createdAt; }` and
-`@Entity Pet extends Auditable { String name; }`:
-
-```
-"Pet" {
-    Long id PK
-    Instant? createdAt
-    String? name
-}
-```
-
-### Components (changes)
-
-- `EntityExtractor.attributesOf`: collect fields over the superclass chain (ancestors
-  first) instead of only `td.getFields()`; apply D29–D30. A small helper
-  (`superclassChain(td, index)`) returns the ordered list of declarations, guarded
-  against cycles and entity superclasses.
-- `EntityExtractor.relationshipsOf`: iterate the same ordered field list, so inherited
-  associations are drawn from the subclass.
-- `EntityView` and `EntityMermaidRenderer`: unchanged.
-- Samples: `samples/inherited/`.
-
-### Required test cases
-
-Extractor — `EntityExtractorTest`, new sample `samples/inherited/`:
-
-| ID | Case | Expected |
-|----|------|----------|
-| H2 | Base in sources with `T id` (no `@Id`) and `Instant createdAt`, entity `extends Base<PetId>` | `[PetId id, createdAt, own fields...]`; `T` replaced, no `PK` (no `@Id` stated) |
-| H3 | `@MappedSuperclass Base { @Id Long id; String audit; }` | `Long id PK`, `audit`, then own fields; no synthetic `id` |
-| H4 | Two-level chain grandparent → parent → entity | order: grandparent, parent, own |
-| H5 | `@Entity Animal` and `@Entity Dog extends Animal` | `Dog` shows only its own fields |
-| H6 | Subclass redeclares an inherited field name | one attribute (subclass wins) |
-| H7 | Inherited `@ManyToOne` in the base | relationship from the subclass; inherited `mappedBy` side skipped |
-| H10 | Superclass not in sources and not ID-style, or an inheritance cycle | no inherited attributes, no exception |
-
-End-to-end — `GenerateEntityDiagramSampleTest`:
-
-| ID | Case | Expected |
-|----|------|----------|
-| G11 | `samples/inherited` | file equals the full expected diagram |
-
-Existing tests keep passing, except those whose sample entities extend an in-source base
-that now contributes attributes: update their expected output accordingly.
-
-### Done when
-
-- H2–H7, H10 and G11 pass, plus `mvn test` from the root.
-- `graphify update .` run. No commits.
 
 ---
 
@@ -890,7 +798,6 @@ something the code contradicts.
 
 - Also treat these as not null (matched by simple name, D4): `NotNull`, `NotBlank`,
   `NotEmpty` (`jakarta`/`javax.validation`), `NonNull` (Lombok), `Nonnull` (JSR-305).
-- Applies to own and inherited fields (ER-INHERIT, once done).
 - Relationship ends are unchanged: a `@NotNull @ManyToOne` field stays optional unless
   `optional = false` or `@JoinColumn(nullable = false)` (D18). Open: whether `@NotNull`
   should also make a `@ManyToOne` end required.

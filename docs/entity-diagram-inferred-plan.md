@@ -16,7 +16,7 @@ Decision numbers (`D…`) are shared with the default plan and stay unique acros
 | ID | Scope | Status |
 |----|-------|--------|
 | ERI-REF | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | ✅ Done (opt-in via `--inferred`) |
-| ERI-ID | Synthetic `XId id PK` from known ID-style bases (`AbstractEntity<XId>`) | 🛑 Blocked by ER-INHERIT |
+| ERI-ID | Synthetic `XId id PK` from known ID-style bases (`AbstractEntity<XId>`) | ❌ Planned |
 | ERI-FLAG | Opt-in flag `--inferred` (default off, requires `--er`) for ERI-REF and ERI-ID | ✅ Done |
 
 Fixes (cheap, only reduce wrong output; not urgent):
@@ -160,7 +160,7 @@ Existing ER-REL tests keep passing unchanged.
 
 ### Scope
 
-Split from ER-INHERIT (inherited attributes) in the default plan. Entities such as petclinic's
+Entities such as petclinic's
 `Visit extends AbstractEntity<VisitId>` declare their `@Id` in a base class that is often
 external (jpearl), so no `PK` is shown. The ID type is known only from the generic
 argument of a base class recognised **by name**, which is an inference.
@@ -170,18 +170,16 @@ In:
   `AbstractVersionedEntity`) with a single type argument `XId`: add a synthetic
   attribute `XId id PK` as the first attribute, whether the base is in the sources or
   external.
-- With ER-INHERIT, inherited ID-reference fields from in-source bases feed ERI-REF (inferred
-  relationship and `FK` on the subclass).
 
-Out: custom base classes not in the list (`BaseEntity<T>`); a name-based fallback.
+Out: custom base classes not in the list (`BaseEntity<T>`); a name-based fallback; other
+fields of the base (superclass fields are not shown, see the default plan).
 
 ### Decisions
 
 | # | Decision | Reason |
 |---|----------|--------|
-| D27 | Synthetic `XId id PK` only when no `@Id`/`@EmbeddedId` field exists in the chain | `@Id` wins over the generic (same priority as ERI-REF); avoids two `PK`s. |
+| D27 | Synthetic `XId id PK` only when the entity declares no `@Id`/`@EmbeddedId` field | `@Id` wins over the generic (same priority as ERI-REF); avoids two `PK`s. |
 | D28 | The synthetic attribute is always named `id` | The field name inside the external base is unknown. |
-| D33 | An in-source base field named `id` typed by the base's type parameter is replaced by the synthetic PK, not duplicated | One `id` attribute. |
 
 ### Output
 
@@ -202,13 +200,12 @@ Petclinic `Visit` (`extends AbstractEntity<VisitId>`, base external), with the f
 | ID | Case | Expected |
 |----|------|----------|
 | H1 | Entity `extends AbstractEntity<PetId>`, base not in sources | first attribute `PetId id`, `primaryKey` true |
-| H2b | Base in sources with `T id` and `Instant createdAt`, entity `extends AbstractEntity<PetId>` | `[PetId id PK, createdAt, own fields...]`; no duplicate `id` |
-| H8 | Inherited ID-reference field (`OwnerId ownerId`) in an in-source base | inferred relationship and `FK` on the subclass |
+| H2b | Base in sources, entity `extends AbstractEntity<PetId>` | `PetId id PK` first; base fields not shown |
 | H9 | `@Id Long number` plus `extends AbstractEntity<ClinicId>` | only `Long number PK`, no synthetic PK |
 
 ### Done when
 
-- H1, H2b, H8, H9 pass, plus `mvn test` from the root. Requires default-plan ER-INHERIT.
+- H1, H2b, H9 pass, plus `mvn test` from the root.
 - Running against `../petclinic` with the flag shows `XId id PK` on every table.
 - `graphify update .` run. No commits.
 
