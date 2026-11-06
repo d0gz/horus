@@ -311,9 +311,8 @@ reading code and `graphify update .` after changes (see root `CLAUDE.md`).
 - [ ] `graphify update .`.
 - [ ] Set ER-REFACTOR to ✅ in this file. In `assis-er/CLAUDE.md`, remove the "pending"
   note at the top of "Extractor structure".
-- [ ] Update the "Components" wording of the other two plan files only when the user asks
-  (they still say "`EntityExtractor`: …"; with the new layout that means the matching
-  module).
+- [x] Other two plan files updated: layout note at the top, module names in the
+  "Components" sections and in every open fix / planned part.
 
 ### Done when
 

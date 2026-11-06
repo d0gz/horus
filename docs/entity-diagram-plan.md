@@ -9,6 +9,14 @@ type, synthetic IDs from known base classes) live in
 [`entity-diagram-inferred-plan.md`](entity-diagram-inferred-plan.md) and are opt-in.
 Principle: a missing line is acceptable, a wrong line is not.
 
+Code layout: since ER-REFACTOR ([`entity-diagram-refactor-plan.md`](entity-diagram-refactor-plan.md),
+D38–D42) the extractor is split into modules in package `io.github.masmangan.assis.er.extract`.
+"Components" sections written before that say `EntityExtractor` for what now lives in:
+`Jpa` (annotation names and readers), `TypeRefs` (type helpers), `ExtractionContext` /
+`EntitySource` (shared context), `AttributeExtractor`, `RelationshipExtractor`,
+`IdResolver` and `InferredRelationshipExtractor` (heuristics). `EntityExtractor` is only
+the public facade. New sections name the module they change. Agent rules: `assis-er/CLAUDE.md`.
+
 ## Goal
 
 Add a new Maven module `assis-er` that reads JPA entity annotations from Java sources and emit a
@@ -20,7 +28,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 
 | assis-pom (reference)      | assis-er (new)            |
 |----------------------------|---------------------------|
-| `PomDependencyExtractor`   | `EntityExtractor`         |
+| `PomDependencyExtractor`   | `er.extract.EntityExtractor` (facade over the `er.extract` modules) |
 | `PomView`                  | `EntityView`              |
 | `PomMermaidRenderer`       | `EntityMermaidRenderer`   |
 | `dependencies.mmd`         | `entity-diagram.mmd`      |
@@ -30,7 +38,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | # | Decision | Reason |
 |---|----------|--------|
 | D1 | Mermaid `erDiagram` (not `classDiagram`) | Native crow's-foot cardinality and PK/FK markers map directly to JPA. |
-| D2 | Own module `assis-er` (package `io.github.masmangan.assis.er`), depending on `assis-core`; `assis-core` itself is not modified | Keeps the ER feature isolated like `assis-pom`, while reusing the public parse pipeline (`SmartSourceRootManager`, `DeterministicPathList`, `DeclaredIndex`). |
+| D2 | Own module `assis-er` (package `io.github.masmangan.assis.er`), depending on `assis-core`; `assis-core` itself is not modified. Extraction code lives in sub-package `er.extract` (D38) | Keeps the ER feature isolated like `assis-pom`, while reusing the public parse pipeline (`SmartSourceRootManager`, `DeterministicPathList`, `DeclaredIndex`). |
 | D3 | Separate output `entity-diagram.mmd`; `class-diagram.puml` untouched | No regression risk on the existing generator. |
 | D4 | Annotations matched by simple name (`Entity`) | Same rule as `DeclaredIndex.stereotypesOf`; covers `jakarta.persistence` and `javax.persistence`, imported or fully qualified. |
 | D5 | Start as simple as possible; every part ships with required tests | Incremental, verifiable steps. |
@@ -50,6 +58,7 @@ Extractor  ──►  View (plain records)  ──►  MermaidRenderer (pure, st
 | ER-CLI | Wiring: `--er` / `--class` CLI flags, user docs | ✅ Done |
 | ER-NULL | Optionality and nullability: required/optional relationship ends, `?` on nullable column types | ✅ Done |
 | ER-NAME | `@Table` / `@Column` names (entity alias, column name with Java name as comment) | ✅ Done |
+| ER-REFACTOR | Extractor split into `er.extract` modules, same output ([refactor plan](entity-diagram-refactor-plan.md)) | ✅ Done |
 
 Fixes (problems found in the default output, against the "never wrong" rule):
 
@@ -65,7 +74,8 @@ ERI-REF, ERI-ID and ERI-FLAG (inferred references, synthetic IDs, the opt-in fla
 
 Out of scope (deferred, no part assigned): value types and inheritance —
 `@Embeddable`/`@Embedded`, `@MappedSuperclass` and fields of superclasses, `@Inheritance`.
-An entity shows only the fields it declares itself.
+An entity shows only the fields it declares itself. When picked up, these get their own
+module that supplies the fields to scan (see "Where future work goes" in the refactor plan).
 
 ### Future: naming option
 
@@ -90,7 +100,7 @@ and embeddables are deferred entirely.
 
 ### Components
 
-Package: `io.github.masmangan.assis.er`
+Package: `io.github.masmangan.assis.er` (the extractor moved to `er.extract` in ER-REFACTOR)
 
 1. **`EntityView`** — the model. No JavaParser or Mermaid types.
    ```java
@@ -189,7 +199,7 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - Java release 17; the only dependency of `assis-er` is `assis-core` (JUnit inherited from the parent). No changes to `assis-core` files.
 - Module `assis-er`, registered in the root `pom.xml` `<modules>`; all classes (including the entry point) in package `io.github.masmangan.assis.er`.
 - Output file name exactly `entity-diagram.mmd`, UTF-8, `\n` line endings, 4-space indent.
-- Every new `.java` file starts with the repo copyright header (copy from `GenerateClassDiagram.java`).
+- No copyright header on new files; few comments. No commits (the user commits); report changed files instead.
 - Indentation: tabs, as in `assis-core`.
 - Before any code change: run `graphify query "<question>"` for codebase questions (see `CLAUDE.md`); after code changes: `graphify update .`.
 
@@ -221,12 +231,12 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - [ ] **Step 2: Run, expect compile failure** — `mvn -q -pl assis-er -am test -Dsurefire.failIfNoSpecifiedTests=false -Dtest=EntityMermaidRendererTest`
 - [ ] **Step 3: Implement** `EntityView` and `render` (StringBuilder: header line, then one indented line per entity).
 - [ ] **Step 4: Run, expect PASS** — same command.
-- [ ] **Step 5: Commit** — `feat(entity): add EntityView and Mermaid erDiagram renderer`
+- [ ] **Step 5: Report changed files** (no commit)
 
 #### Task 2: `EntityExtractor` + samples
 
 **Files:**
-- Create: `assis-er/src/main/java/io/github/masmangan/assis/er/EntityExtractor.java`
+- Create: `assis-er/src/main/java/io/github/masmangan/assis/er/EntityExtractor.java` (now `er/extract/EntityExtractor.java`, ER-REFACTOR)
 - Create samples under `assis-er/src/test/resources/samples/`:
   - `entity/Owner.java` — copy of `assis-core`'s `samples/entity/Owner.java` (test resources are not shared across modules)
   - `entitymixed/Owner.java` — `package samples.entitymixed;` `@Entity` (jakarta import) `class Owner`
@@ -235,7 +245,7 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
   - `entityfqn/Invoice.java` — no import, `@jakarta.persistence.Entity(name = "invoices") class Invoice`
   - `entitynone/Helper.java` — plain class
   (Same flat layout as the existing `samples/entity/Owner.java`: file directly in the sample dir, `package samples.<dir>;`.)
-- Test: `assis-er/src/test/java/io/github/masmangan/assis/er/EntityExtractorTest.java`
+- Test: `assis-er/src/test/java/io/github/masmangan/assis/er/EntityExtractorTest.java` (now under `er/extract/`)
 
 **Interfaces:**
 - Consumes: `EntityView` (Task 1); `DeclaredIndex.typesInIndexOrder()`; `SmartSourceRootManager.autoscan(DeterministicPathList)`; `DeterministicPathList.fromSourceRoots(Set<Path>)`.
@@ -250,7 +260,7 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - [ ] **Step 2: Run, expect compile failure** — `mvn -q -pl assis-er -am test -Dsurefire.failIfNoSpecifiedTests=false -Dtest=EntityExtractorTest`
 - [ ] **Step 3: Implement `extract`** — iterate index order, filter by the matching rule, map to `Entity(td.getNameAsString())`.
 - [ ] **Step 4: Run, expect PASS.**
-- [ ] **Step 5: Commit** — `feat(entity): extract @Entity types from DeclaredIndex`
+- [ ] **Step 5: Report changed files** (no commit)
 
 #### Task 3: `GenerateEntityDiagram` entry point
 
@@ -274,7 +284,7 @@ Regression: existing `GenerateClassDiagramEntitySampleTest` keeps passing unchan
 - [ ] **Step 4: Run, expect PASS.** If G6 fails because `autoscan` rejects an empty root, report it before changing behavior.
 - [ ] **Step 5: Full regression** — `mvn -q test` from the root; expect all green, including `GenerateClassDiagramEntitySampleTest` in `assis-core`.
 - [ ] **Step 6: Housekeeping** — `graphify update .`; set ER-ENTITY roadmap row to **Done**.
-- [ ] **Step 7: Commit** — `feat(entity): add GenerateEntityDiagram entry point`
+- [ ] **Step 7: Report changed files** (no commit)
 
 ---
 
@@ -320,7 +330,7 @@ Attribute lines are indented 8 spaces; the block opens with `"Name" {` and close
    ```
    `type` is the Java type as JavaParser prints it (`Map<String,List<Integer>>`, `java.time.LocalDate`).
 
-2. **`EntityExtractor`** — for each entity, walk its `FieldDeclaration`s in order; skip excluded fields;
+2. **`AttributeExtractor`** (was `EntityExtractor`; exclusion rule = `Jpa.isColumnField`) — for each entity, walk its `FieldDeclaration`s in order; skip excluded fields;
    one `Attribute` per variable (`int a, b;` → two attributes); `primaryKey` = field has `@Id`.
    Annotations matched by simple name (D4).
 
@@ -438,7 +448,7 @@ erDiagram
    public record Relationship(String from, String to, Cardinality cardinality, String label) {}
    ```
 
-2. **`EntityExtractor`** — for each entity, for each field with one of the four annotations:
+2. **`RelationshipExtractor`** (was `EntityExtractor`; annotations in `Jpa.RELATIONSHIPS`, target via `TypeRefs.targetOf`) — for each entity, for each field with one of the four annotations:
    skip if the annotation has a `mappedBy` member; resolve the target (last type argument or the
    type itself, simple name); keep it only if the target is an extracted entity; one `Relationship`
    per variable. Two passes: entity names first, then relationships.
@@ -628,8 +638,8 @@ erDiagram
 - `EntityView`: `Relationship` gains `boolean required` (default constructor value
   `false`); `Attribute` gains `boolean nullable`. Secondary constructors keep earlier callers
   compiling and default `nullable` to `false`, so their output has no `?`.
-- `EntityExtractor`: `relationshipsOf` reads the annotation members (`optional`) and an
-  accompanying `@JoinColumn(nullable)`; `attributesOf` reads `@Column(nullable)` and
+- `RelationshipExtractor` reads the annotation members (`optional`) and an
+  accompanying `@JoinColumn(nullable)`; `AttributeExtractor` reads `@Column(nullable)` and
   `@Basic(optional)`, and skips ids and primitive types.
 - `EntityMermaidRenderer`: `symbol` picks `o|` or `||` for the target end of annotated
   `MANY_TO_ONE`/`ONE_TO_ONE` (inferred ones unchanged); attributes with `nullable` get
@@ -737,7 +747,7 @@ erDiagram
 - `EntityView`: `Entity` gains `String tableName` (nullable); `Attribute` gains
   `String columnName` (nullable). Secondary constructors keep earlier callers compiling;
   the view keeps the Java names in `name` (D10).
-- `EntityExtractor`: read `@Table(name)` on the entity and `@Column(name)` on fields
+- `EntityExtractor` (facade, `Jpa.nameIfDifferent`) reads `@Table(name)` on the entity; `AttributeExtractor` reads `@Column(name)` on fields
   (annotations matched by simple name, D4).
 - `EntityMermaidRenderer`: emit the alias after the identifier when the table name is
   valid, else a `%% table:` line above the entity (D26); the column name as the
@@ -798,6 +808,8 @@ something the code contradicts.
 
 - Also treat these as not null (matched by simple name, D4): `NotNull`, `NotBlank`,
   `NotEmpty` (`jakarta`/`javax.validation`), `NonNull` (Lombok), `Nonnull` (JSR-305).
+- Modules: `Jpa` (the not-null names and an `isNotNull(fd)` reader) and one condition in
+  `AttributeExtractor`'s `nullable`.
 - Relationship ends are unchanged: a `@NotNull @ManyToOne` field stays optional unless
   `optional = false` or `@JoinColumn(nullable = false)` (D18). Open: whether `@NotNull`
   should also make a `@ManyToOne` end required.
@@ -834,6 +846,9 @@ drawn to the wrong one. This affects ER-REL relationships and ER-ATTR attribute 
   declaring class. If it resolves to exactly one entity, draw the line.
 - If it cannot be resolved for sure (wildcard imports matching several candidates,
   unknown types), **draw nothing**: a missing line is acceptable, a wrong one is not.
+- Modules: `ExtractionContext` (replace `entityNames` with a resolver keyed by qualified
+  name), `RelationshipExtractor` and `TypeRefs` (resolve the target through it). The
+  renderer handles identifiers; `IdResolver` keeps simple names (inferred limitation).
 - Rendering: entity identifiers stay the simple name when it is unique; on a collision
   every colliding entity uses its qualified name (`"billing.Order"`, valid inside a
   quoted Mermaid name). Deterministic for the same input.

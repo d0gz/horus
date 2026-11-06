@@ -9,6 +9,17 @@ acceptable. Everything here can be wrong in some code structures (see "Known fal
 results" below), so it is **opt-in** behind a CLI flag (ERI-FLAG). When enabled,
 inferred relationships are drawn with dotted `..` lines to mark them as guesses.
 
+Code layout: since ER-REFACTOR ([`entity-diagram-refactor-plan.md`](entity-diagram-refactor-plan.md),
+D38–D42) the extractor is split into modules in package `io.github.masmangan.assis.er.extract`.
+"Components" sections written before that say `EntityExtractor` for what now lives in:
+`Jpa` (annotation names and readers), `TypeRefs` (type helpers), `ExtractionContext` /
+`EntitySource` (shared context), `AttributeExtractor`, `RelationshipExtractor`,
+`IdResolver` and `InferredRelationshipExtractor` (heuristics). `EntityExtractor` is only
+the public facade. New sections name the module they change. Agent rules: `assis-er/CLAUDE.md`.
+
+All heuristics stay in `IdResolver` and `InferredRelationshipExtractor` (D41); the only
+inferred data the default modules see is `ExtractionContext.fkOwners()`, empty without the flag.
+
 Decision numbers (`D…`) are shared with the default plan and stay unique across both files.
 
 ## Roadmap
@@ -120,7 +131,9 @@ Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by t
 
 - `EntityView`: relationship gains `inferred` flag; attribute gains `foreignKey` flag
   (secondary constructors keep earlier callers compiling).
-- `EntityExtractor`: collect ID type per entity; add inference pass.
+- `IdResolver`: ID type per entity (`EntitySource.ownId`) and ID type → owner map
+  (`ExtractionContext.idOwners`). `InferredRelationshipExtractor`: the inference pass.
+  `AttributeExtractor`: `FK` from `ctx.fkOwners()`. (Written as `EntityExtractor` before ER-REFACTOR.)
 - `EntityMermaidRenderer`: `..` instead of `--` when `inferred`; ` FK` after the name when `foreignKey`.
 - Ordering: inferred relationships are emitted per entity right after that entity's
   annotated ones (refines D12: entity order, then annotated, then inferred).
@@ -173,6 +186,10 @@ In:
 
 Out: custom base classes not in the list (`BaseEntity<T>`); a name-based fallback; other
 fields of the base (superclass fields are not shown, see the default plan).
+
+Modules: `IdResolver` (expose whether the ID came from the base generic, not an `@Id`
+field, e.g. on `EntitySource`), `AttributeExtractor` (prepend the synthetic attribute when
+`ctx.inferred()`). Without the flag nothing changes (D35).
 
 ### Decisions
 
@@ -248,8 +265,9 @@ dotted lines or their `FK` markers (petclinic's `Visit` loses its three links by
 ### Components (changes)
 
 - `EntityExtractor.extract(DeclaredIndex index, boolean inferred)`; the existing
-  `extract(index)` keeps the default (off). Inference passes and FK marking run only when
-  `inferred` is true.
+  `extract(index)` keeps the default (off). The inference pass always runs (to set
+  `hiddenInferred`, D36), but its relationships are added and FK markers produced only when
+  `inferred` is true (`ExtractionContext.inferred`, `fkOwners()`).
 - `GenerateEntityDiagram.generate(sourceRoots, outDir, boolean inferred)` overload.
 - `CliArgs`: `boolean inferred`, set by `--inferred`; rejected without `--er` (D34);
   `AssisApp.run` passes it through.
@@ -279,13 +297,17 @@ dotted lines or their `FK` markers (petclinic's `Visit` loses its three links by
 
 ## 🟦 FIX-WRAPPER — Non-reference generic wrappers
 
-Known false result 2. `targetOf` takes the last type argument of any generic, so
+Known false result 2. `TypeRefs.targetOf` takes the last type argument of any generic, so
 `Supplier<PetId>`, `Event<PetId>`, `Class<PetId>`, `Comparator<PetId>` resolve to `Pet`.
 
 Fix: unwrap only known reference containers: the collection types in
 `types.CollectionTypes` and `Optional`. Any other generic yields no inferred link
 (missing rather than wrong). This replaces the "unknown generic is many-to-one" row of
 D17, so `Wrapper<PetId>` (I13) now gives no link.
+
+Modules: a new `TypeRefs` reader for reference containers, used by
+`InferredRelationshipExtractor` and by `AttributeExtractor`'s `FK` rule. `targetOf` itself
+stays as is, because `RelationshipExtractor` relies on it for annotated fields.
 
 | ID | Case | Expected |
 |----|------|----------|
@@ -305,6 +327,10 @@ Fix: after both passes, drop an inferred relationship when an annotated relation
 already exists with the same `from` and `to` entity. The ID field stays as an attribute,
 without `FK` (the annotated side already shows the link).
 
+Modules: the drop happens in `EntityExtractor` once both lists exist. The `FK` marker is
+computed earlier in `AttributeExtractor`, so the annotated pairs must be known first: put
+them on `ExtractionContext` (from `RelationshipExtractor`) and have both use them.
+
 | ID | Case | Expected |
 |----|------|----------|
 | FD1 | `@ManyToOne Owner owner` + `OwnerId ownerId` in `Pet` | only the solid `"Pet" }o--o\| "Owner"` line |
@@ -321,6 +347,10 @@ real tree (`Category { CategoryId parentId; }`) loses its self-link.
 Fix: exclude only the entity's own ID field (the `@Id`/`@EmbeddedId` field, or the
 synthetic/inherited `id` from ERI-ID), not every field of that type. Other fields of the
 own ID type draw a dotted self-relationship.
+
+Modules: `InferredRelationshipExtractor` drops its `entity.isOwnId(idType)` skip (the
+`Jpa.isIdField` skip already excludes the ID field). `AttributeExtractor` uses the same
+`isOwnId` rule for `FK`, so `parentId` should also get `FK`. Keep both in step.
 
 | ID | Case | Expected |
 |----|------|----------|
