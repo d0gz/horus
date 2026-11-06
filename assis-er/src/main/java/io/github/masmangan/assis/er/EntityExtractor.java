@@ -55,6 +55,16 @@ public final class EntityExtractor {
 	 * @return view with one entry per @Entity type
 	 */
 	public static EntityView extract(DeclaredIndex index) {
+		return extract(index, false);
+	}
+
+	/**
+	 * @param index    filled declared-type index
+	 * @param inferred true to also infer references by ID type (dotted lines, FK
+	 *                 markers)
+	 * @return view with one entry per @Entity type
+	 */
+	public static EntityView extract(DeclaredIndex index, boolean inferred) {
 		List<TypeDeclaration<?>> types = new ArrayList<>();
 		for (TypeDeclaration<?> td : index.typesInIndexOrder()) {
 			if (isEntity(td)) {
@@ -65,23 +75,39 @@ public final class EntityExtractor {
 		for (TypeDeclaration<?> td : types) {
 			names.add(td.getNameAsString());
 		}
+
 		Set<String> projectTypes = new HashSet<>();
+
 		for (TypeDeclaration<?> td : index.typesInIndexOrder()) {
 			projectTypes.add(td.getNameAsString());
 		}
-		Map<String, String> owners = idOwners(types, projectTypes, names);
+
+		List<Optional<String>> ownIds = new ArrayList<>();
+		for (TypeDeclaration<?> td : types) {
+			ownIds.add(idTypeOf(td, projectTypes, names));
+		}
+		Map<String, String> owners = idOwners(types, ownIds);
+		Map<String, String> fkOwners = inferred ? owners : Map.of();
+		boolean hiddenInferred = false;
+
 		List<EntityView.Entity> entities = new ArrayList<>();
-		for (TypeDeclaration<?> td : types) {
-			entities.add(new EntityView.Entity(td.getNameAsString(),
-					attributesOf(td, owners, idTypeOf(td, projectTypes, names)),
-					nameIfDifferent(td, "Table", td.getNameAsString())));
-		}
 		List<EntityView.Relationship> relationships = new ArrayList<>();
-		for (TypeDeclaration<?> td : types) {
+
+		for (int i = 0; i < types.size(); i++) {
+			TypeDeclaration<?> td = types.get(i);
+			entities.add(new EntityView.Entity(td.getNameAsString(), attributesOf(td, fkOwners, ownIds.get(i)),
+					nameIfDifferent(td, "Table", td.getNameAsString())));
 			relationships.addAll(relationshipsOf(td, names));
-			relationships.addAll(inferredOf(td, owners, idTypeOf(td, projectTypes, names)));
+
+			List<EntityView.Relationship> guessed = inferredOf(td, owners, ownIds.get(i));
+
+			if (inferred) {
+				relationships.addAll(guessed);
+			} else if (!guessed.isEmpty()) {
+				hiddenInferred = true;
+			}
 		}
-		return new EntityView(entities, relationships);
+		return new EntityView(entities, relationships, hiddenInferred);
 	}
 
 	private static List<EntityView.Relationship> relationshipsOf(TypeDeclaration<?> td, Set<String> entityNames) {
@@ -89,6 +115,7 @@ public final class EntityExtractor {
 		for (FieldDeclaration fd : td.getFields()) {
 			for (AnnotationExpr a : fd.getAnnotations()) {
 				Cardinality cardinality = CARDINALITIES.get(a.getName().getIdentifier());
+
 				if (cardinality == null || hasMappedBy(a)) {
 					continue;
 				}
@@ -96,6 +123,7 @@ public final class EntityExtractor {
 						&& (isFalse(a, "optional") || hasFalseMember(fd, "JoinColumn", "nullable"));
 				for (VariableDeclarator v : fd.getVariables()) {
 					String target = targetOf(v.getType());
+
 					if (entityNames.contains(target)) {
 						relationships.add(new EntityView.Relationship(td.getNameAsString(), target, cardinality,
 								v.getNameAsString(), false, required));
@@ -110,12 +138,12 @@ public final class EntityExtractor {
 	 * ID type simple name to owning entity; ID types claimed by several entities
 	 * are dropped.
 	 */
-	private static Map<String, String> idOwners(List<TypeDeclaration<?>> types, Set<String> projectTypes,
-			Set<String> entityNames) {
+	private static Map<String, String> idOwners(List<TypeDeclaration<?>> types, List<Optional<String>> ownIds) {
 		Map<String, String> owners = new HashMap<>();
 		Set<String> ambiguous = new HashSet<>();
-		for (TypeDeclaration<?> td : types) {
-			idTypeOf(td, projectTypes, entityNames).ifPresent(id -> {
+		for (int i = 0; i < types.size(); i++) {
+			TypeDeclaration<?> td = types.get(i);
+			ownIds.get(i).ifPresent(id -> {
 				if (owners.putIfAbsent(id, td.getNameAsString()) != null) {
 					ambiguous.add(id);
 				}

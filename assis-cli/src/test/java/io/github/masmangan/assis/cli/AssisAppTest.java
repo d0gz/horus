@@ -251,6 +251,55 @@ class AssisAppTest {
 		assertTrue(CliArgs.usage.contains("--er"));
 	}
 
+	private Path writeIdReferenceSample() throws Exception {
+		Path src = tempDir.resolve("idsrc");
+		Files.createDirectories(src);
+		Files.writeString(src.resolve("OwnerId.java"), "public class OwnerId {\n}\n", UTF_8);
+		Files.writeString(src.resolve("Owner.java"), "@Entity\npublic class Owner {\n\t@Id\n\tOwnerId id;\n}\n", UTF_8);
+		Files.writeString(src.resolve("Pet.java"),
+				"@Entity\npublic class Pet {\n\t@Id\n\tLong id;\n\tOwnerId ownerId;\n}\n", UTF_8);
+		return src;
+	}
+
+	private String runEr(Path src, String... flags) throws Exception {
+		Path out = tempDir.resolve("er-out");
+		String[] base = { "-sourcepath", src.toString(), "-d", out.toString(), "--er" };
+		String[] args = java.util.stream.Stream.concat(java.util.Arrays.stream(base), java.util.Arrays.stream(flags))
+				.toArray(String[]::new);
+		assertEquals(0, AssisApp.run(args));
+		return Files.readString(out.resolve(ER_FILE), UTF_8);
+	}
+
+	@Test
+	void erWithoutInferredHasNoDottedLines() throws Exception {
+		String er = runEr(writeIdReferenceSample());
+
+		assertTrue(er.startsWith("%% There could be relationships that were not shown"), er);
+		assertFalse(er.contains("}o.."), er);
+	}
+
+	@Test
+	void erWithInferredDrawsDottedLines() throws Exception {
+		String er = runEr(writeIdReferenceSample(), "--inferred");
+
+		assertFalse(er.contains("There could be relationships"), er);
+		assertTrue(er.contains("\"Pet\" }o..|| \"Owner\" : \"ownerId\""), er);
+	}
+
+	@Test
+	void inferredWithoutErIsRejected() {
+		try (var logs = new JulLogCaptor(AssisApp.class)) {
+			assertNotEquals(0, AssisApp.run(new String[] { "--inferred" }));
+			assertNotEquals(0, AssisApp.run(new String[] { "--class", "--inferred" }));
+			assertTrue(logs.any(Level.SEVERE, "--inferred requires --er"), logs.dump());
+		}
+	}
+
+	@Test
+	void usageDocumentsInferredFlag() {
+		assertTrue(CliArgs.usage.contains("--inferred"));
+	}
+
 	private static String debugBuffers(ByteArrayOutputStream outBuf, ByteArrayOutputStream errBuf) {
 		return "stdout:\n" + outBuf.toString(UTF_8) + "\n\nstderr:\n" + errBuf.toString(UTF_8);
 	}

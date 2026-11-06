@@ -1,6 +1,7 @@
 package io.github.masmangan.assis.er;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,6 +29,22 @@ class GenerateEntityDiagramSampleTest {
 		Path outDir = tempDir.resolve(outName);
 		GenerateEntityDiagram.generate(roots, outDir);
 		return Files.readString(outDir.resolve("entity-diagram.mmd"), StandardCharsets.UTF_8);
+	}
+
+	@Test
+	void inferredOutputOnlyWithFlag() throws Exception {
+		Set<Path> roots = Set.of(sample("samples/inferred"));
+		String plain = generateInto(roots, "plain");
+		Path outDir = tempDir.resolve("inferred");
+		GenerateEntityDiagram.generate(roots, outDir, true);
+		String inferred = Files.readString(outDir.resolve("entity-diagram.mmd"), StandardCharsets.UTF_8);
+
+		assertTrue(plain.startsWith(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\nerDiagram\n"), plain);
+		assertFalse(inferred.contains(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE), inferred);
+		assertFalse(plain.replace(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE, "").contains(".."), plain);
+		assertFalse(plain.contains(" FK"), plain);
+		assertTrue(inferred.contains("\"Visit\" }o..|| \"Pet\" : \"petId\""), inferred);
+		assertTrue(inferred.contains(" FK"), inferred);
 	}
 
 	@Test

@@ -42,6 +42,8 @@ final class CliArgs {
 
 	final boolean erDiagram;
 
+	final boolean inferred;
+
 	/**
 	 *
 	 * @param mode
@@ -49,15 +51,17 @@ final class CliArgs {
 	 * @param outDir
 	 */
 	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir) {
-		this(mode, sourceRoots, outDir, true, true);
+		this(mode, sourceRoots, outDir, true, true, false);
 	}
 
-	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir, boolean classDiagram, boolean erDiagram) {
+	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir, boolean classDiagram, boolean erDiagram,
+			boolean inferred) {
 		this.mode = mode;
 		this.sourceRoots = sourceRoots;
 		this.outDir = outDir;
 		this.classDiagram = classDiagram;
 		this.erDiagram = erDiagram;
+		this.inferred = inferred;
 	}
 
 	/**
@@ -75,6 +79,7 @@ final class CliArgs {
 		Path outDir = null;
 		boolean classDiagram = false;
 		boolean erDiagram = false;
+		boolean inferred = false;
 
 		boolean skip = false;
 		for (int i = 0; i < args.length; i++) {
@@ -102,15 +107,20 @@ final class CliArgs {
 				classDiagram = true;
 			} else if ("--er".equals(a)) {
 				erDiagram = true;
+			} else if ("--inferred".equals(a)) {
+				inferred = true;
 			} else {
 				throw new IllegalArgumentException("Unknown option: " + a + "\n\n" + usage);
 			}
 		}
 
-		if (!classDiagram && !erDiagram) {
-			return new CliArgs(Mode.RUN, srcRoots, outDir, true, true);
+		if (inferred && !erDiagram) {
+			throw new IllegalArgumentException("Option --inferred requires --er\n\n" + usage);
 		}
-		return new CliArgs(Mode.RUN, srcRoots, outDir, classDiagram, erDiagram);
+		if (!classDiagram && !erDiagram) {
+			return new CliArgs(Mode.RUN, srcRoots, outDir, true, true, false);
+		}
+		return new CliArgs(Mode.RUN, srcRoots, outDir, classDiagram, erDiagram, inferred);
 	}
 
 	/**
@@ -234,6 +244,9 @@ final class CliArgs {
 			        Generate only the class diagram (class-diagram.puml)
 			  --er
 			        Generate only the entity diagram (entity-diagram.mmd)
+			  --inferred
+			        With --er only: also infer references by ID type (dotted lines, FK);
+			        these are guesses and can be wrong
 
 			Defaults:
 

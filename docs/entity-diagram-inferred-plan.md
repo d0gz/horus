@@ -15,9 +15,9 @@ Decision numbers (`D…`) are shared with the default plan and stay unique acros
 
 | ID | Scope | Status |
 |----|-------|--------|
-| ERI-REF | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | ⚠️ Done, always on until ERI-FLAG |
+| ERI-REF | Inferred relationships from ID-typed fields (dotted `..` lines, `FK` markers) | ✅ Done (opt-in via `--inferred`) |
 | ERI-ID | Synthetic `XId id PK` from known ID-style bases (`AbstractEntity<XId>`) | 🛑 Blocked by ER-INHERIT |
-| ERI-FLAG | Opt-in flag `--inferred` (default off) for ERI-REF and ERI-ID | ❌ Planned |
+| ERI-FLAG | Opt-in flag `--inferred` (default off, requires `--er`) for ERI-REF and ERI-ID | ✅ Done |
 
 Fixes (cheap, only reduce wrong output; not urgent):
 
@@ -114,7 +114,7 @@ Remaining uncertainty is cardinality (one-to-one vs many-to-one), signalled by t
 - A custom generic wrapper around an ID is assumed single-valued, even if it is really a collection.
 - `PK` for IDs inherited from bases such as jpearl `AbstractEntity` is ERI-ID; `FK` is not
   shown for annotated associations (`@ManyToOne`, `@OneToOne`), deferred.
-- Currently always on; ERI-FLAG makes it opt-in (default off).
+- Opt-in: only with `--er --inferred` (ERI-FLAG); off by default.
 
 ### Components (changes)
 
@@ -151,7 +151,7 @@ Existing ER-REL tests keep passing unchanged.
 
 - I1–I14 pass (including I12), plus `mvn test` from the root.
 - Running against `../petclinic` shows `Visit` linked to `Owner`, `Pet`, `Veterinarian`
-  (with the ERI-FLAG flag, once it exists).
+  (with `--er --inferred`).
 - `graphify update .` run. No commits.
 
 ---
@@ -219,15 +219,33 @@ Petclinic `Visit` (`extends AbstractEntity<VisitId>`, base external), with the f
 ### Scope
 
 In:
-- New value-less CLI flag `--inferred` (name to confirm), same style as `--er`/`--class`.
+- New value-less CLI flag `--inferred`, same style as `--er`/`--class`.
+- **Valid only together with `--er`** (D34). `--inferred` alone, or with only `--class`,
+  is a usage error (non-zero exit, `Option --inferred requires --er`).
 - **Default (no flag):** no inferred relationships, no `FK` from inferred references, no
   synthetic PK (ERI-ID). Only JPA-declared output from the default plan.
 - **With `--inferred`:** ERI-REF and ERI-ID as specified.
+- **Hidden-link note (D36):** without the flag, if inference would have found at least one
+  relationship, the file starts with the line
+  `%% There could be relationships that were not shown - use '--inferred' to see the inferred relationships`
+  (a Mermaid comment, not rendered). No note when nothing was hidden or the flag is on.
+- **Inferred-block note (D37):** with the flag, all declared relationships come first, then a blank line,
+  then `%% Dotted lines below are inferred relationships and are not certain`, then all inferred
+  relationships. No note when nothing was inferred.
 - `--help` usage text documents the flag; user docs mention that inferred lines are guesses.
+
+### Decisions
+
+| # | Decision | Reason |
+|---|----------|--------|
+| D34 | `--inferred` requires an explicit `--er`; otherwise a usage error | The flag only affects the entity diagram; with no diagram flag the user did not ask for ER output explicitly, so a silent guess mode is avoided. |
+| D35 | With the flag off, inferred relationships and `FK` markers are not emitted | Default output shows only declared links. |
+| D37 | With the flag, relationship lines are grouped: declared first, then the note, then inferred (refines the per-entity order of ERI-REF) | The note sits directly above the guesses. |
+| D36 | With the flag off, inference still runs only to detect hidden links; `EntityView.hiddenInferred` drives the leading `%%` note | Tells the user links may be missing without drawing a guess. |
 
 ### Behaviour change
 
-ERI-REF is currently always on. After ERI-FLAG, a run without the flag no longer shows the
+ERI-REF was always on before. After ERI-FLAG, a run without the flag no longer shows the
 dotted lines or their `FK` markers (petclinic's `Visit` loses its three links by default).
 
 ### Components (changes)
@@ -236,7 +254,8 @@ dotted lines or their `FK` markers (petclinic's `Visit` loses its three links by
   `extract(index)` keeps the default (off). Inference passes and FK marking run only when
   `inferred` is true.
 - `GenerateEntityDiagram.generate(sourceRoots, outDir, boolean inferred)` overload.
-- `CliArgs`: `boolean inferred`, set by `--inferred`; `AssisApp.run` passes it through.
+- `CliArgs`: `boolean inferred`, set by `--inferred`; rejected without `--er` (D34);
+  `AssisApp.run` passes it through.
 - Existing ERI-REF tests call the extractor with `inferred = true`.
 
 ### Required test cases
@@ -248,10 +267,15 @@ dotted lines or their `FK` markers (petclinic's `Visit` loses its three links by
 | F3 | Annotated relationships without the flag | unchanged (solid lines) |
 | F4 | CLI `--er --inferred` | `entity-diagram.mmd` contains dotted lines |
 | F5 | `CliArgs.usage` | contains `--inferred` |
+| F6 | CLI `--inferred` alone, `--class --inferred` | non-zero exit, SEVERE `--inferred requires --er` |
+| F7 | `samples/inferred` without the flag | file starts with the hidden-link `%%` note, then `erDiagram` |
+| F8 | With the flag, or a sample with no ID references | no note |
+| F9 | Flag on with declared and inferred relationships | declared lines, then the `%%` inferred note, then dotted lines |
+| F10 | No inferred relationships | no inferred note |
 
 ### Done when
 
-- F1–F5 pass, plus `mvn test` from the root; all ERI-REF tests run with the flag.
+- F1–F10 pass, plus `mvn test` from the root; all ERI-REF tests run with the flag.
 - `graphify update .` run. No commits.
 
 ---

@@ -2,6 +2,7 @@ package io.github.masmangan.assis.er;
 
 import io.github.masmangan.assis.er.types.Cardinality;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -267,5 +268,36 @@ class EntityMermaidRendererTest {
 
 			assertEquals("erDiagram\n    %% table: " + table + "\n    \"Owner\"\n", EntityMermaidRenderer.render(view));
 		}
+	}
+
+	@Test
+	void hiddenInferredNoteComesFirst() {
+		var view = new EntityView(List.of(new EntityView.Entity("Owner")), List.of(), true);
+
+		assertEquals(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\nerDiagram\n    \"Owner\"\n",
+				EntityMermaidRenderer.render(view));
+		assertEquals("erDiagram\n    \"Owner\"\n",
+				EntityMermaidRenderer.render(new EntityView(List.of(new EntityView.Entity("Owner")))));
+	}
+
+	@Test
+	void inferredRelationshipsComeAfterNote() {
+		var view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "ownerId", true),
+						new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "owner")));
+
+		assertEquals("erDiagram\n    \"Owner\"\n    \"Pet\"\n"
+				+ "    \"Pet\" }o--o| \"Owner\" : \"owner\"\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.INFERRED_NOTE + "\n"
+				+ "    \"Pet\" }o..|| \"Owner\" : \"ownerId\"\n", EntityMermaidRenderer.render(view));
+	}
+
+	@Test
+	void noInferredNoteWithoutInferredRelationships() {
+		var view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "owner")));
+
+		assertFalse(EntityMermaidRenderer.render(view).contains("%%"));
 	}
 }

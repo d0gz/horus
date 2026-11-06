@@ -56,7 +56,11 @@ Reads the **raw** `pom.xml` only. It does **not** yet:
 java -jar assis.jar               # class-diagram.puml and entity-diagram.mmd
 java -jar assis.jar --er          # only entity-diagram.mmd
 java -jar assis.jar --class       # only class-diagram.puml
+java -jar assis.jar --er --inferred  # also infer references by ID type (opt-in)
 ```
+
+`--inferred` (only with `--er`) also draws links that the code does not declare,
+deduced from ID-typed fields (`OwnerId ownerId`). They are dotted and can be wrong.
 
 `-sourcepath` and `-d` work as for the class diagram (default output: `docs/diagrams/src/`).
 

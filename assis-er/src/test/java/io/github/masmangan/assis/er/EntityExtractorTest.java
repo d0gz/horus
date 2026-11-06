@@ -1,6 +1,7 @@
 package io.github.masmangan.assis.er;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URL;
@@ -21,13 +22,17 @@ import io.github.masmangan.assis.util.DeterministicPathList;
 class EntityExtractorTest {
 
 	private EntityView extractFrom(String resource) throws Exception {
+		return extractFrom(resource, false);
+	}
+
+	private EntityView extractFrom(String resource, boolean inferred) throws Exception {
 		URL url = getClass().getClassLoader().getResource(resource);
 		Path root = Paths.get(url.toURI());
 
 		DeclaredIndex index = new DeclaredIndex();
 		index.fill(new SmartSourceRootManager().autoscan(DeterministicPathList.fromSourceRoots(Set.of(root))));
 
-		return EntityExtractor.extract(index);
+		return EntityExtractor.extract(index, inferred);
 	}
 
 	private List<String> entityNamesIn(String resource) throws Exception {
@@ -141,9 +146,28 @@ class EntityExtractorTest {
 	}
 
 	private List<String> inferred() throws Exception {
-		return extractFrom("samples/inferred").relationships().stream()
+		return extractFrom("samples/inferred", true).relationships().stream()
 				.map(r -> r.from() + "->" + r.to() + " " + r.cardinality() + " " + r.label() + (r.inferred() ? " ~" : ""))
 				.toList();
+	}
+
+	@Test
+	void infersNothingWithoutFlag() throws Exception {
+		EntityView view = extractFrom("samples/inferred");
+
+		assertTrue(view.relationships().stream().noneMatch(EntityView.Relationship::inferred),
+				view.relationships().toString());
+		assertTrue(view.entities().stream().flatMap(e -> e.attributes().stream())
+				.noneMatch(EntityView.Attribute::foreignKey));
+		assertTrue(view.relationships().stream().anyMatch(r -> r.label().equals("pet")),
+				"annotated relationships stay");
+		assertTrue(view.hiddenInferred());
+	}
+
+	@Test
+	void nothingHiddenWhenFlagOnOrNoIdReferences() throws Exception {
+		assertFalse(extractFrom("samples/inferred", true).hiddenInferred());
+		assertFalse(extractFrom("samples/relationships").hiddenInferred());
 	}
 
 	@Test
@@ -215,7 +239,7 @@ class EntityExtractorTest {
 
 	@Test
 	void marksInferredSingleValuedReferencesAsForeignKeys() throws Exception {
-		var fks = extractFrom("samples/inferred").entities().stream().flatMap(
+		var fks = extractFrom("samples/inferred", true).entities().stream().flatMap(
 				e -> e.attributes().stream().filter(EntityView.Attribute::foreignKey).map(a -> e.name() + "." + a.name()))
 				.toList();
 

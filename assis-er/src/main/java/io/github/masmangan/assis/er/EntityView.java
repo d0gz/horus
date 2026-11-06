@@ -11,13 +11,19 @@ import io.github.masmangan.assis.er.types.Cardinality;
  * The extractor fills an  EntityView; the renderer consumes it.
  *
  * @param entities      entities in deterministic order
- * @param relationships relationships in entity, then field order
+ * @param relationships  relationships in entity, then field order
+ * @param hiddenInferred true when inferred relationships exist but were left out
+ *                       (inference not enabled)
  */
-public record EntityView(List<Entity> entities, List<Relationship> relationships) {
+public record EntityView(List<Entity> entities, List<Relationship> relationships, boolean hiddenInferred) {
 
 	public EntityView {
 		entities = List.copyOf(entities);
 		relationships = List.copyOf(relationships);
+	}
+
+	public EntityView(List<Entity> entities, List<Relationship> relationships) {
+		this(entities, relationships, false);
 	}
 
 	public EntityView(List<Entity> entities) {

@@ -1,11 +1,18 @@
 package io.github.masmangan.assis.er;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 
 /**
  * Renders an EntityView as a Mermaid erDiagram.
  */
 public final class EntityMermaidRenderer {
+
+	static final String INFERRED_NOTE = "Dotted lines below are inferred relationships and are not certain";
+
+	static final String HIDDEN_INFERRED_NOTE = "%% There could be relationships that were not shown"
+			+ " - use '--inferred' to see the inferred relationships";
 
 	private static final String INDENT = "    ";
 	/** ATTRIBUTE_WORD of erDiagram.jison, minus the case-insensitive key words. */
@@ -24,7 +31,11 @@ public final class EntityMermaidRenderer {
 	 * @return Mermaid erDiagram source
 	 */
 	public static String render(EntityView view) {
-		StringBuilder sb = new StringBuilder("erDiagram\n");
+		StringBuilder sb = new StringBuilder();
+		if (view.hiddenInferred()) {
+			sb.append(HIDDEN_INFERRED_NOTE).append('\n');
+		}
+		sb.append("erDiagram\n");
 		for (EntityView.Entity entity : view.entities()) {
 			boolean alias = entity.tableName() != null && ENTITY_NAME.matcher(entity.tableName()).matches();
 			if (entity.tableName() != null && !alias) {
@@ -59,20 +70,36 @@ public final class EntityMermaidRenderer {
 			}
 			sb.append(INDENT).append("}\n");
 		}
+		List<EntityView.Relationship> inferred = new ArrayList<>();
 		for (EntityView.Relationship r : view.relationships()) {
-			sb.append(INDENT).append('"').append(r.from()).append("\" ").append(symbol(r))
-					.append(" \"").append(r.to()).append("\" : \"").append(r.label()).append("\"\n");
+			if (r.inferred()) {
+				inferred.add(r);
+			} else {
+				appendRelationship(sb, r);
+			}
+		}
+		if (!inferred.isEmpty()) {
+			sb.append('\n');
+			appendNote(sb, INDENT, INFERRED_NOTE);
+			for (EntityView.Relationship r : inferred) {
+				appendRelationship(sb, r);
+			}
 		}
 		return sb.toString();
+	}
+
+	private static void appendRelationship(StringBuilder sb, EntityView.Relationship r) {
+		sb.append(INDENT).append('"').append(r.from()).append("\" ").append(symbol(r))
+				.append(" \"").append(r.to()).append("\" : \"").append(r.label()).append("\"\n");
 	}
 
 	private static String symbol(EntityView.Relationship r) {
 		String one = r.required() || r.inferred() ? "||" : "o|";
 		String symbol = switch (r.cardinality()) {
-		case MANY_TO_ONE -> "}o--" + one;
-		case ONE_TO_MANY -> "||--o{";
-		case ONE_TO_ONE -> "||--" + one;
-		case MANY_TO_MANY -> "}o--o{";
+			case MANY_TO_ONE -> "}o--" + one;
+			case ONE_TO_MANY -> "||--o{";
+			case ONE_TO_ONE -> "||--" + one;
+			case MANY_TO_MANY -> "}o--o{";
 		};
 		return r.inferred() ? symbol.replace("--", "..") : symbol;
 	}

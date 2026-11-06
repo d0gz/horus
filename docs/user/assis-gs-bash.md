@@ -114,6 +114,13 @@ To generate only one of them, pass `--class` (class diagram) or `--er` (entity d
 java -jar assis.jar --er
 ```
 
+With `--er`, add `--inferred` to also draw links deduced from ID-typed fields
+(DDD style, `OwnerId ownerId`). They are drawn dotted because they are guesses:
+
+```bash
+java -jar assis.jar --er --inferred
+```
+
 > **Tip**  
 > Make your life easier by creating an alias:
 > ```bash
