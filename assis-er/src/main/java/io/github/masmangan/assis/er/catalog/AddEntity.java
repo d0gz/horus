@@ -27,12 +27,7 @@ record AddEntity(int line, String name, String table) implements CatalogEntry {
 				continue;
 			}
 			if (table == null || Objects.equals(newTable, e.tableName())) {
-				warnings.add("Line " + line + ": entity '" + name + "' already exists, nothing changed");
 				return view;
-			}
-			if (e.fromCatalog() && e.tableName() != null) {
-				warnings.add("Line " + line + ": table of entity '" + name
-						+ "' was already set in the catalog, the last one wins");
 			}
 			entities.set(i, new EntityView.Entity(name, e.attributes(), newTable, true));
 			return new EntityView(entities, view.relationships(), view.hiddenInferred());

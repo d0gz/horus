@@ -121,7 +121,7 @@ With `--er`, add `--inferred` to also draw links deduced from ID-typed fields
 java -jar assis.jar --er --inferred
 ```
 
-If the entity diagram misses a relationship, an entity or an attribute, or draws one wrong, write it in a
+If the entity diagram misses a relationship, an entity or an attribute, shows one too many, or draws one wrong, write it in a
 **catalog** file and pass it with `--catalog`. The catalog wins over what ASSIS found.
 One entry per line; `#` starts a comment. Copy a line from `entity-diagram.mmd` and put
 `add` in front of it, or use the field form:
@@ -134,6 +134,8 @@ add relationship | Visit | Vet | many-to-one | vetId | required, dotted
 add entity | AuditLog | audit_log
 add attribute | Visit | String | notes | nullable
 add "Visit" { Long id PK; PetId? petId FK }
+remove entity | Helper
+remove "Pet" }o--o| "Pet" : "mother"
 ```
 
 ```bash
@@ -145,6 +147,9 @@ java -jar assis.jar --er --catalog entity-catalog.txt
 | `add relationship \| <from> \| <to> \| <cardinality> \| <label> [\| <flags>]` | cardinality: `many-to-one`, `one-to-many`, `one-to-one`, `many-to-many`; flags: `required`, `dotted` |
 | `add entity \| <name> [\| <table>]` | creates the entity, or sets the table name of an existing one |
 | `add attribute \| <entity> \| <type> \| <name> [\| <flags>]` | flags: `pk`, `fk`, `nullable`, `column=<name>`; not nullable unless `nullable` is given |
+| `remove relationship \| <from> \| <to> \| <label>` | removes that relationship |
+| `remove attribute \| <entity> \| <name>` | removes that attribute (by name or column name) |
+| `remove entity \| <name>` | removes the entity and all its relationships |
 
 Both entities of a relationship must exist in the diagram or be added by the catalog;
 otherwise the line is skipped with a warning.
@@ -152,6 +157,8 @@ otherwise the line is skipped with a warning.
 (or the same column name) as a found one replaces it in place; a new one is added at the end.
 In the Mermaid form, several attributes go in one line, separated by `;`.
 Entities and attributes added or changed by the catalog get a `%% from catalog` line above them.
+Any line of the diagram also works with `remove` in front; removals are applied after all
+additions, so they always win.
 A catalog line with the same from, to and label as a found relationship replaces it.
 Catalog relationships are listed after the comment `%% Relationships below come from the catalog`.
 Problems in the file are logged as warnings; the diagram is still generated.

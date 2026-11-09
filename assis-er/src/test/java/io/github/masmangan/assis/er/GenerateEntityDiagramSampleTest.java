@@ -278,4 +278,17 @@ class GenerateEntityDiagramSampleTest {
 		assertEquals(expected,
 				generateWithCatalog(true, sample("samples/catalog-files/entity-catalog-add.txt"), "out"));
 	}
+
+	@Test
+	void removesFromCatalogWithAndWithoutInferred() throws Exception {
+		// CG6
+		String expected = "erDiagram\n"
+				+ "    \"Owner\" {\n        Long id PK\n    }\n"
+				+ "    \"Visit\" {\n        Long id PK\n    }\n"
+				+ "    " + FROM_CATALOG + "    \"AuditLog\"\n";
+		Path catalog = sample("samples/catalog-files/entity-catalog-remove.txt");
+		assertEquals(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\n" + expected,
+				generateWithCatalog(false, catalog, "plain"));
+		assertEquals(expected, generateWithCatalog(true, catalog, "inferred"));
+	}
 }

@@ -95,15 +95,17 @@ class CatalogParserTest {
 	}
 
 	@Test
-	void laterPartsAreNotSupportedYet() {
+	void everyOperationAndKindParses() {
 		// CP8
-		for (String line : List.of("remove relationship | Pet | Pet | mother", "remove entity | Helper",
+		for (String line : List.of("add relationship | Pet | Pet | many-to-one | mother", "add entity | Helper",
+				"add attribute | Owner | String | cache", "add \"Pet\" }o--o| \"Pet\" : \"mother\"",
+				"add \"Helper\"", "add \"Owner\" { String cache }",
+				"remove relationship | Pet | Pet | mother", "remove entity | Helper",
 				"remove attribute | Owner | cache", "remove \"Helper\"",
-				"remove \"Pet\" }o--o| \"Pet\" : \"mother\"")) {
+				"remove \"Pet\" }o--o| \"Pet\" : \"mother\"", "remove \"Owner\" { String cache }")) {
 			CatalogParser.Result result = CatalogParser.parse(line);
-			assertTrue(result.entries().isEmpty(), line);
-			assertEquals(1, result.warnings().size(), line);
-			assertTrue(result.warnings().get(0).endsWith("is not supported yet"), result.warnings().toString());
+			assertEquals(1, result.entries().size(), line);
+			assertTrue(result.warnings().isEmpty(), line + " " + result.warnings());
 		}
 	}
 
@@ -224,9 +226,9 @@ class CatalogParserTest {
 	void dropsInvalidAttributeFlags() {
 		// CP19
 		String[][] cases = {
-				{ "add attribute | V | Long | id | pk, nullable", "true", "false", "null" },
-				{ "add attribute | V | Long | id | column=", "false", "false", "null" },
-				{ "add attribute | V | Long | id | unique", "false", "false", "null" } };
+				{ "add attribute | V | Long | id | pk, nullable", "true", "false", "0" },
+				{ "add attribute | V | Long | id | column=", "false", "false", "1" },
+				{ "add attribute | V | Long | id | unique", "false", "false", "1" } };
 		for (String[] c : cases) {
 			CatalogParser.Result result = CatalogParser.parse(c[0]);
 			assertEquals(1, result.entries().size(), c[0]);
@@ -234,7 +236,7 @@ class CatalogParserTest {
 			assertEquals(Boolean.parseBoolean(c[1]), a.primaryKey(), c[0]);
 			assertEquals(Boolean.parseBoolean(c[2]), a.nullable(), c[0]);
 			assertEquals(null, a.columnName(), c[0]);
-			assertEquals(1, result.warnings().size(), c[0] + " " + result.warnings());
+			assertEquals(Integer.parseInt(c[3]), result.warnings().size(), c[0] + " " + result.warnings());
 		}
 	}
 
@@ -317,5 +319,46 @@ class CatalogParserTest {
 				entries("    add \"AuditLog\"[\"audit_log\"]"));
 		assertEquals(List.of(new AddAttribute(1, "Visit", attr("PetId", "petId", false, true, true, null))),
 				entries("add         \"Visit\" { PetId? petId FK }"));
+	}
+
+	@Test
+	void parsesRemovalsInBothForms() {
+		// CP28
+		String[][] pairs = {
+				{ "remove relationship | Pet | Pet | mother", "remove \"Pet\" }o--o| \"Pet\" : \"mother\"" },
+				{ "Remove Attribute | Owner | cache", "remove \"Owner\" { String? cache }" },
+				{ "REMOVE ENTITY | Helper", "remove Helper" } };
+		CatalogEntry[] expected = { new RemoveRelationship(1, "Pet", "Pet", "mother"),
+				new RemoveAttribute(1, "Owner", "cache"), new RemoveEntity(1, "Helper") };
+		for (int i = 0; i < pairs.length; i++) {
+			assertEquals(List.of(expected[i]), entries(pairs[i][0]), pairs[i][0]);
+			assertEquals(List.of(expected[i]), entries(pairs[i][1]), pairs[i][1]);
+		}
+		assertEquals(List.of(new RemoveEntity(1, "Helper")), entries("    remove \"Helper\"[\"helpers\"]"));
+	}
+
+	@Test
+	void skipsInvalidRemovals() {
+		// CP29
+		skippedWithWarning("remove relationship | Pet | Pet");
+		skippedWithWarning("remove relationship | Pet | Pet | mother | extra");
+		skippedWithWarning("remove relationship | Pet |  | mother");
+		skippedWithWarning("remove relationship | Pet | Pet |  ");
+		skippedWithWarning("remove attribute | Owner");
+		skippedWithWarning("remove attribute |  | cache");
+		skippedWithWarning("remove entity | ");
+		skippedWithWarning("remove entity | A | B");
+		skippedWithWarning("remove \"Pet\" }o--> \"Pet\" : \"mother\"");
+		skippedWithWarning("remove \"Pet\" }o--o| \"Pet\"");
+		skippedWithWarning("remove \"Owner\" { }");
+	}
+
+	@Test
+	void blockRemovesOnlyAttributes() {
+		// CP30
+		assertEquals(List.of(new RemoveAttribute(1, "Owner", "id"), new RemoveAttribute(1, "Owner", "cache")),
+				entries("remove \"Owner\"[\"owners\"] { Long id PK; String cache }"));
+		CatalogParser.Result bad = CatalogParser.parse("remove \"Owner\"[\"owners\"] { String }");
+		assertTrue(bad.entries().isEmpty(), bad.entries().toString());
 	}
 }

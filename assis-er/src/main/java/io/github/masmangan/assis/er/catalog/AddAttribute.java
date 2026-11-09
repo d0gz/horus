@@ -22,7 +22,7 @@ record AddAttribute(int line, String entity, EntityView.Attribute attribute) imp
 		for (int i = 0; i < entities.size(); i++) {
 			EntityView.Entity e = entities.get(i);
 			if (e.name().equals(entity)) {
-				entities.set(i, new EntityView.Entity(entity, merge(e.attributes(), warnings), e.tableName(),
+				entities.set(i, new EntityView.Entity(entity, merge(e.attributes()), e.tableName(),
 						e.fromCatalog()));
 				return new EntityView(entities, view.relationships(), view.hiddenInferred());
 			}
@@ -32,7 +32,7 @@ record AddAttribute(int line, String entity, EntityView.Attribute attribute) imp
 		return new EntityView(entities, view.relationships(), view.hiddenInferred());
 	}
 
-	private List<EntityView.Attribute> merge(List<EntityView.Attribute> attributes, List<String> warnings) {
+	private List<EntityView.Attribute> merge(List<EntityView.Attribute> attributes) {
 		int match = indexOf(attributes, true);
 		boolean byColumn = false;
 		if (match < 0) {
@@ -45,10 +45,6 @@ record AddAttribute(int line, String entity, EntityView.Attribute attribute) imp
 			return merged;
 		}
 		EntityView.Attribute old = merged.get(match);
-		if (old.fromCatalog()) {
-			warnings.add("Line " + line + ": attribute " + entity + "." + old.name()
-					+ " was already in the catalog, the last one wins");
-		}
 		merged.set(match, byColumn
 				? marked(old.name(), attribute.columnName() != null ? attribute.columnName() : attribute.name())
 				: marked(attribute.name(), attribute.columnName()));

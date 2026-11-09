@@ -29,17 +29,8 @@ record AddRelationship(int line, String from, String to, Cardinality cardinality
 				return view;
 			}
 		}
-		List<EntityView.Relationship> relationships = new ArrayList<>();
-		for (EntityView.Relationship r : view.relationships()) {
-			if (r.from().equals(from) && r.to().equals(to) && r.label().equals(label)) {
-				if (r.fromCatalog()) {
-					warnings.add("Line " + line + ": relationship " + from + " -> " + to + " '" + label
-							+ "' was already in the catalog, the last one wins");
-				}
-			} else {
-				relationships.add(r);
-			}
-		}
+		List<EntityView.Relationship> relationships = new ArrayList<>(view.relationships().stream()
+				.filter(r -> !(r.from().equals(from) && r.to().equals(to) && r.label().equals(label))).toList());
 		relationships.add(new EntityView.Relationship(from, to, cardinality, label, false, required, true, dotted));
 		return new EntityView(view.entities(), relationships, view.hiddenInferred());
 	}

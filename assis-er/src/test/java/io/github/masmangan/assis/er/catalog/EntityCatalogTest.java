@@ -98,8 +98,7 @@ class EntityCatalogTest {
 		EntityView out = c.apply(view());
 		assertEquals(List.of(OWNER, INFERRED, catalog("Visit", "Owner", Cardinality.ONE_TO_ONE, "ownerId", false)),
 				out.relationships());
-		assertEquals(1, c.warnings().size());
-		assertTrue(c.warnings().get(0).startsWith("Line 2"), c.warnings().toString());
+		assertTrue(c.warnings().isEmpty(), c.warnings().toString());
 	}
 
 	@Test
@@ -165,13 +164,12 @@ class EntityCatalogTest {
 	}
 
 	@Test
-	void addEntityWithoutChangeWarns() {
+	void addEntityWithoutChangeIsANoOp() {
 		// CA12
 		for (CatalogEntry e : List.of(new AddEntity(3, "Visit", null), new AddEntity(3, "Owner", "owners"))) {
 			EntityCatalog c = EntityCatalog.of(e);
 			assertEquals(visitView(), c.apply(visitView()));
-			assertEquals(1, c.warnings().size(), c.warnings().toString());
-			assertTrue(c.warnings().get(0).startsWith("Line 3: entity '"), c.warnings().toString());
+			assertTrue(c.warnings().isEmpty(), c.warnings().toString());
 		}
 	}
 
@@ -226,13 +224,11 @@ class EntityCatalogTest {
 		EntityView out = attributes.apply(visitView());
 		assertEquals(List.of(ID, fromCatalog(attr("Text", "notes", false, false, false, null))),
 				entity(out, "Owner").attributes());
-		assertEquals(1, attributes.warnings().size());
-		assertTrue(attributes.warnings().get(0).startsWith("Line 2"), attributes.warnings().toString());
+		assertTrue(attributes.warnings().isEmpty(), attributes.warnings().toString());
 
 		EntityCatalog tables = EntityCatalog.of(new AddEntity(1, "Visit", "a"), new AddEntity(2, "Visit", "b"));
 		assertEquals("b", entity(tables.apply(visitView()), "Visit").tableName());
-		assertEquals(1, tables.warnings().size());
-		assertTrue(tables.warnings().get(0).startsWith("Line 2"), tables.warnings().toString());
+		assertTrue(tables.warnings().isEmpty(), tables.warnings().toString());
 	}
 
 	@Test
@@ -266,5 +262,62 @@ class EntityCatalogTest {
 				attr("OwnerId", "ownerId", false, false, true, null))).apply(view());
 		assertEquals(view().relationships(), out.relationships());
 		assertTrue(out.hiddenInferred());
+	}
+
+	@Test
+	void removesRelationshipAttributeAndEntity() {
+		// CA22
+		assertEquals(List.of(INFERRED),
+				EntityCatalog.of(new RemoveRelationship(1, "Pet", "Owner", "owner")).apply(view()).relationships());
+		EntityView byName = EntityCatalog.of(new RemoveAttribute(1, "Visit", "petId")).apply(visitView());
+		assertEquals(List.of("id", "comment"), entity(byName, "Visit").attributes().stream()
+				.map(EntityView.Attribute::name).toList());
+		EntityView byColumn = EntityCatalog.of(new RemoveAttribute(1, "Visit", "visit_notes")).apply(visitView());
+		assertEquals(List.of("id", "petId"), entity(byColumn, "Visit").attributes().stream()
+				.map(EntityView.Attribute::name).toList());
+		EntityView noVisit = EntityCatalog.of(new RemoveEntity(1, "Visit")).apply(visitView());
+		assertEquals(List.of("Owner"), noVisit.entities().stream().map(EntityView.Entity::name).toList());
+	}
+
+	@Test
+	void removeEntityRemovesItsRelationships() {
+		// CA23
+		EntityView.Relationship mother = new EntityView.Relationship("Pet", "Pet", Cardinality.MANY_TO_ONE, "mother");
+		EntityView.Relationship visitOwner = new EntityView.Relationship("Visit", "Owner", Cardinality.MANY_TO_ONE,
+				"ownerId");
+		EntityView start = new EntityView(view().entities(), List.of(OWNER, INFERRED, mother, visitOwner), true);
+		EntityView out = EntityCatalog.of(new RemoveEntity(1, "Pet")).apply(start);
+		assertEquals(List.of(visitOwner), out.relationships());
+		assertEquals(view().entities().get(0), out.entities().get(0));
+		assertTrue(out.hiddenInferred());
+	}
+
+	@Test
+	void removingWhatIsNotThereWarns() {
+		// CA24
+		for (CatalogEntry e : List.of(new RemoveRelationship(1, "Pet", "Owner", "other"),
+				new RemoveAttribute(1, "Visit", "ghost"), new RemoveAttribute(1, "Ghost", "id"),
+				new RemoveEntity(1, "Ghost"))) {
+			EntityCatalog c = EntityCatalog.of(e);
+			assertEquals(visitView(), c.apply(visitView()));
+			assertEquals(1, c.warnings().size(), e.toString());
+			assertTrue(c.warnings().get(0).startsWith("Line 1: ")
+					&& c.warnings().get(0).endsWith("not found, nothing removed"), c.warnings().toString());
+		}
+		EntityCatalog twice = EntityCatalog.of(new RemoveEntity(1, "Visit"), new RemoveEntity(2, "Visit"));
+		twice.apply(visitView());
+		assertEquals(List.of("Line 2: entity 'Visit' not found, nothing removed"), twice.warnings());
+	}
+
+	@Test
+	void removalWinsOverLaterAdd() {
+		// CA25
+		EntityCatalog c = EntityCatalog.of(new RemoveEntity(1, "AuditLog"), new RemoveAttribute(2, "Owner", "notes"),
+				new RemoveRelationship(3, "Visit", "Owner", "ownerId"), new AddEntity(4, "AuditLog", null),
+				new AddAttribute(5, "Owner", NOTES),
+				new AddRelationship(6, "Visit", "Owner", Cardinality.MANY_TO_ONE, "ownerId", false, false));
+		EntityView out = c.apply(visitView());
+		assertEquals(visitView(), out);
+		assertTrue(c.warnings().isEmpty(), c.warnings().toString());
 	}
 }

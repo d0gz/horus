@@ -63,7 +63,7 @@ final class CatalogParser {
 		if (field.matches()) {
 			String kind = field.group(1).toLowerCase(Locale.ROOT);
 			if (operation.equals("remove")) {
-				return notSupported(line, operation + " " + kind, warnings);
+				return one(fieldRemoval(line, kind, rest, warnings));
 			}
 			return switch (kind) {
 				case "relationship" -> one(fieldRelationship(line, rest, warnings));
@@ -76,13 +76,9 @@ final class CatalogParser {
 			warnings.add("Line " + line + " ignored: unknown kind '" + unknown.group(1) + "'");
 			return List.of();
 		}
-		if (operation.equals("remove")) {
-			return notSupported(line, "remove", warnings);
-		}
-		if (MermaidLine.looksLikeEntity(rest)) {
-			return MermaidLine.entity(line, rest, warnings);
-		}
-		return one(MermaidLine.relationship(line, rest, warnings));
+		List<CatalogEntry> adds = MermaidLine.looksLikeEntity(rest) ? MermaidLine.entity(line, rest, warnings)
+				: one(MermaidLine.relationship(line, rest, warnings));
+		return operation.equals("remove") ? removals(line, rest.contains("{"), adds, warnings) : adds;
 	}
 
 	private static CatalogEntry fieldRelationship(int line, String text, List<String> warnings) {
@@ -210,19 +206,59 @@ final class CatalogParser {
 			warnings.add("Line " + line + " ignored: invalid attribute name '" + name + "'");
 			return null;
 		}
-		if (pk && nullable) {
-			warnings.add("Line " + line + ": 'nullable' does not apply to a primary key, ignored");
-			nullable = false;
-		}
-		return new EntityView.Attribute(type, name, pk, fk, nullable, name.equals(column) ? null : column);
+		return new EntityView.Attribute(type, name, pk, fk, nullable && !pk, name.equals(column) ? null : column);
 	}
 
 	private static List<CatalogEntry> one(CatalogEntry entry) {
 		return entry == null ? List.of() : List.of(entry);
 	}
 
-	private static List<CatalogEntry> notSupported(int line, String what, List<String> warnings) {
-		warnings.add("Line " + line + ": '" + what + "' is not supported yet");
-		return List.of();
+	private static CatalogEntry fieldRemoval(int line, String kind, String text, List<String> warnings) {
+		String[] fields = text.split("\\|", -1);
+		int expected = switch (kind) {
+			case "relationship" -> 4;
+			case "attribute" -> 3;
+			default -> 2;
+		};
+		String usage = switch (kind) {
+			case "relationship" -> "remove relationship | <from> | <to> | <label>";
+			case "attribute" -> "remove attribute | <entity> | <name>";
+			default -> "remove entity | <name>";
+		};
+		if (fields.length != expected) {
+			warnings.add("Line " + line + " ignored: expected " + usage);
+			return null;
+		}
+		for (int i = 1; i < fields.length; i++) {
+			fields[i] = fields[i].trim();
+			if (fields[i].isEmpty()) {
+				warnings.add("Line " + line + " ignored: empty field in " + usage);
+				return null;
+			}
+		}
+		return switch (kind) {
+			case "relationship" -> new RemoveRelationship(line, fields[1], fields[2], fields[3]);
+			case "attribute" -> new RemoveAttribute(line, fields[1], fields[2]);
+			default -> new RemoveEntity(line, fields[1]);
+		};
+	}
+
+	/** A Mermaid remove line is read as an add line; only the keys are kept. A block removes attributes only. */
+	private static List<CatalogEntry> removals(int line, boolean block, List<CatalogEntry> adds,
+			List<String> warnings) {
+		List<CatalogEntry> removals = new ArrayList<>();
+		for (CatalogEntry add : adds) {
+			if (add instanceof AddRelationship r) {
+				removals.add(new RemoveRelationship(line, r.from(), r.to(), r.label()));
+			} else if (add instanceof AddAttribute a) {
+				removals.add(new RemoveAttribute(line, a.entity(), a.attribute().name()));
+			} else if (add instanceof AddEntity e && !block) {
+				removals.add(new RemoveEntity(line, e.name()));
+			}
+		}
+		if (block && removals.isEmpty() && !adds.isEmpty()) {
+			warnings.add("Line " + line + " ignored: no attribute to remove");
+		}
+		return removals;
 	}
 }
