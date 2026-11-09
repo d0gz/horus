@@ -300,4 +300,59 @@ class EntityMermaidRendererTest {
 
 		assertFalse(EntityMermaidRenderer.render(view).contains("%%"));
 	}
+
+	private static EntityView.Relationship catalog(String from, String to, String label, boolean required,
+			boolean dotted) {
+		return new EntityView.Relationship(from, to, Cardinality.MANY_TO_ONE, label, false, required, true, dotted);
+	}
+
+	@Test
+	void groupsDeclaredCatalogAndInferred() {
+		// CR1
+		var view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "ownerId", true),
+						catalog("Pet", "Owner", "breeder", true, false),
+						new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "owner")));
+
+		assertEquals("erDiagram\n    \"Owner\"\n    \"Pet\"\n"
+				+ "    \"Pet\" }o--o| \"Owner\" : \"owner\"\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
+				+ "    \"Pet\" }o--|| \"Owner\" : \"breeder\"\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.INFERRED_NOTE + "\n"
+				+ "    \"Pet\" }o..|| \"Owner\" : \"ownerId\"\n", EntityMermaidRenderer.render(view));
+	}
+
+	@Test
+	void catalogRelationshipUsesRequired() {
+		// CR2
+		var entities = List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet"));
+		assertTrue(EntityMermaidRenderer.render(new EntityView(entities, List.of(catalog("Pet", "Owner", "o", true, false))))
+				.contains("\"Pet\" }o--|| \"Owner\" : \"o\""));
+		assertTrue(EntityMermaidRenderer.render(new EntityView(entities, List.of(catalog("Pet", "Owner", "o", false, false))))
+				.contains("\"Pet\" }o--o| \"Owner\" : \"o\""));
+	}
+
+	@Test
+	void noCatalogNoteWithoutCatalogRelationships() {
+		// CR3
+		var view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")),
+				List.of(new EntityView.Relationship("Pet", "Owner", Cardinality.MANY_TO_ONE, "owner")));
+
+		assertFalse(EntityMermaidRenderer.render(view).contains(EntityMermaidRenderer.CATALOG_NOTE));
+	}
+
+	@Test
+	void dottedCatalogRelationshipStaysInCatalogGroup() {
+		// CR4
+		var view = new EntityView(List.of(new EntityView.Entity("Owner"), new EntityView.Entity("Pet")),
+				List.of(catalog("Pet", "Owner", "a", true, true), catalog("Pet", "Owner", "b", false, true)));
+
+		assertEquals("erDiagram\n    \"Owner\"\n    \"Pet\"\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
+				+ "    \"Pet\" }o..|| \"Owner\" : \"a\"\n"
+				+ "    \"Pet\" }o..o| \"Owner\" : \"b\"\n", EntityMermaidRenderer.render(view));
+	}
 }

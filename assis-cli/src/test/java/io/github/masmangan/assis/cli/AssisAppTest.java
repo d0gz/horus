@@ -295,6 +295,57 @@ class AssisAppTest {
 		}
 	}
 
+	private Path writeCatalog() throws Exception {
+		Path catalog = tempDir.resolve("entity-catalog.txt");
+		Files.writeString(catalog, "add relationship | Pet | Owner | many-to-one | ownerId | required\n", UTF_8);
+		return catalog;
+	}
+
+	@Test
+	void erWithCatalogDrawsCatalogLine() throws Exception {
+		// CC1
+		String er = runEr(writeIdReferenceSample(), "--catalog", writeCatalog().toString());
+
+		assertTrue(er.contains("\"Pet\" }o--|| \"Owner\" : \"ownerId\""), er);
+	}
+
+	@Test
+	void catalogWithoutDiagramFlagAppliesToEntityDiagram() throws Exception {
+		// CC2
+		Path out = tempDir.resolve("cc2-out");
+		String[] args = { "-sourcepath", writeIdReferenceSample().toString(), "-d", out.toString(), "--catalog",
+				writeCatalog().toString() };
+		assertEquals(0, AssisApp.run(args));
+
+		assertTrue(Files.exists(out.resolve(PUML_FILE)));
+		assertTrue(Files.readString(out.resolve(ER_FILE), UTF_8).contains("\"Pet\" }o--|| \"Owner\" : \"ownerId\""));
+	}
+
+	@Test
+	void catalogWithOnlyClassIsRejected() throws Exception {
+		// CC3
+		String catalog = writeCatalog().toString();
+		try (var logs = new JulLogCaptor(AssisApp.class)) {
+			assertNotEquals(0, AssisApp.run(new String[] { "--class", "--catalog", catalog }));
+			assertTrue(logs.any(Level.SEVERE, "--catalog requires the entity diagram"), logs.dump());
+		}
+	}
+
+	@Test
+	void catalogWithoutValueIsRejected() {
+		// CC4
+		try (var logs = new JulLogCaptor(AssisApp.class)) {
+			assertNotEquals(0, AssisApp.run(new String[] { "--er", "--catalog" }));
+			assertTrue(logs.any(Level.SEVERE, "Missing value for --catalog"), logs.dump());
+		}
+	}
+
+	@Test
+	void usageDocumentsCatalog() {
+		// CC5
+		assertTrue(CliArgs.usage.contains("--catalog <file>"));
+	}
+
 	@Test
 	void usageDocumentsInferredFlag() {
 		assertTrue(CliArgs.usage.contains("--inferred"));

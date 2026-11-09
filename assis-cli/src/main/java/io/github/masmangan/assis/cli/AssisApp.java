@@ -106,7 +106,7 @@ public final class AssisApp {
 				GenerateClassDiagram.generate(sourceRoots, outDir);
 			}
 			if (cli.erDiagram) {
-				GenerateEntityDiagram.generate(sourceRoots, outDir, cli.inferred);
+				GenerateEntityDiagram.generate(sourceRoots, outDir, cli.inferred, cli.catalog);
 			}
 
 			return 0;

@@ -34,12 +34,18 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	 * @param label    owning field name
 	 * @param inferred true when deduced from an ID-typed field rather than a JPA
 	 *                 relationship annotation; cardinality is then assumed
-	 * @param required true when the target end of an annotated MANY_TO_ONE or
-	 *                 ONE_TO_ONE is mandatory (optional = false or
-	 *                 JoinColumn nullable = false)
+	 * @param required    true when the target end of a MANY_TO_ONE or ONE_TO_ONE
+	 *                    is mandatory
+	 * @param fromCatalog true when added by the user catalog
+	 * @param dotted      true when the catalog asks for a dotted line
 	 */
 	public record Relationship(String from, String to, Cardinality cardinality, String label, boolean inferred,
-			boolean required) {
+			boolean required, boolean fromCatalog, boolean dotted) {
+
+		public Relationship(String from, String to, Cardinality cardinality, String label, boolean inferred,
+				boolean required) {
+			this(from, to, cardinality, label, inferred, required, false, false);
+		}
 
 		public Relationship(String from, String to, Cardinality cardinality, String label, boolean inferred) {
 			this(from, to, cardinality, label, inferred, false);

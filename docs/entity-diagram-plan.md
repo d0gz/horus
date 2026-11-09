@@ -72,6 +72,10 @@ Status: ✅ done · ❌ not done · ⚠️ done with a warning or problem · �
 ERI-REF, ERI-ID and ERI-FLAG (inferred references, synthetic IDs, the opt-in flag) are in
 [`entity-diagram-inferred-plan.md`](entity-diagram-inferred-plan.md).
 
+ERC-CORE, ERC-ADD and ERC-REMOVE (user catalog `--catalog <file>` that adds or removes
+relationships, entities and attributes, overruling the extraction) are in
+[`entity-diagram-catalog-plan.md`](entity-diagram-catalog-plan.md).
+
 Out of scope (deferred, no part assigned): value types and inheritance —
 `@Embeddable`/`@Embedded`, `@MappedSuperclass` and fields of superclasses, `@Inheritance`.
 An entity shows only the fields it declares itself. When picked up, these get their own

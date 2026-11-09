@@ -121,6 +121,31 @@ With `--er`, add `--inferred` to also draw links deduced from ID-typed fields
 java -jar assis.jar --er --inferred
 ```
 
+If the entity diagram misses a relationship, or draws one wrong, write it in a
+**catalog** file and pass it with `--catalog`. The catalog wins over what ASSIS found.
+One entry per line; `#` starts a comment. Copy a line from `entity-diagram.mmd` and put
+`add` in front of it, or use the field form:
+
+```text
+# entity-catalog.txt
+add "Visit" }o--|| "Pet" : "petId"
+add relationship | Owner | Pet | one-to-many | pets
+add relationship | Visit | Vet | many-to-one | vetId | required, dotted
+```
+
+```bash
+java -jar assis.jar --er --catalog entity-catalog.txt
+```
+
+| Field form | Values |
+|------------|--------|
+| `add relationship \| <from> \| <to> \| <cardinality> \| <label> [\| <flags>]` | cardinality: `many-to-one`, `one-to-many`, `one-to-one`, `many-to-many`; flags: `required`, `dotted` |
+
+Both entities must exist in the diagram; otherwise the line is skipped with a warning.
+A catalog line with the same from, to and label as a found relationship replaces it.
+Catalog relationships are listed after the comment `%% Relationships below come from the catalog`.
+Problems in the file are logged as warnings; the diagram is still generated.
+
 > **Tip**  
 > Make your life easier by creating an alias:
 > ```bash

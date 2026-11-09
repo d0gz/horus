@@ -200,4 +200,49 @@ class GenerateEntityDiagramSampleTest {
 
 		assertEquals("erDiagram\n", generateInto(Set.of(empty), "out"));
 	}
+
+	private String generateWithCatalog(boolean inferred, Path catalog, String outName) throws Exception {
+		Path outDir = tempDir.resolve(outName);
+		GenerateEntityDiagram.generate(Set.of(sample("samples/catalog")), outDir, inferred, catalog);
+		return Files.readString(outDir.resolve("entity-diagram.mmd"), StandardCharsets.UTF_8);
+	}
+
+	private static final String CATALOG_ENTITIES = "erDiagram\n"
+			+ "    \"Owner\" {\n        Long id PK\n    }\n"
+			+ "    \"Pet\"\n";
+
+	@Test
+	void appliesCatalogToSample() throws Exception {
+		// CG1
+		String expected = EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\n" + CATALOG_ENTITIES
+				+ "    \"Visit\" {\n        Long id PK\n        PetId? petId\n        Set~PetId~? pastPets\n    }\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
+				+ "    \"Visit\" }o--|| \"Pet\" : \"petId\"\n"
+				+ "    \"Pet\" }o--|| \"Owner\" : \"owner\"\n";
+		assertEquals(expected, generateWithCatalog(false, sample("samples/catalog-files/entity-catalog.txt"), "out"));
+	}
+
+	@Test
+	void catalogComesBeforeInferredBlock() throws Exception {
+		// CG2
+		String expected = CATALOG_ENTITIES
+				+ "    \"Visit\" {\n        Long id PK\n        PetId? petId FK\n        Set~PetId~? pastPets\n    }\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
+				+ "    \"Visit\" }o--|| \"Pet\" : \"petId\"\n"
+				+ "    \"Pet\" }o--|| \"Owner\" : \"owner\"\n"
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.INFERRED_NOTE + "\n"
+				+ "    \"Visit\" ||..o{ \"Pet\" : \"pastPets\"\n";
+		assertEquals(expected, generateWithCatalog(true, sample("samples/catalog-files/entity-catalog.txt"), "out"));
+	}
+
+	@Test
+	void noOrMissingCatalogChangesNothing() throws Exception {
+		// CG3
+		String plain = generateWithCatalog(false, null, "none");
+		assertEquals(plain, generateWithCatalog(false, tempDir.resolve("missing.txt"), "missing"));
+		assertFalse(plain.contains(EntityMermaidRenderer.CATALOG_NOTE), plain);
+	}
 }

@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import io.github.masmangan.assis.er.catalog.EntityCatalog;
 import io.github.masmangan.assis.er.extract.EntityExtractor;
 import io.github.masmangan.assis.internal.DeclaredIndex;
 import io.github.masmangan.assis.io.SmartSourceRootManager;
@@ -49,6 +50,15 @@ public class GenerateEntityDiagram {
 	 */
 	public static void generate(final Set<Path> sourceRoots, final Path outDir, final boolean inferred)
 			throws IOException {
+		generate(sourceRoots, outDir, inferred, null);
+	}
+
+	/**
+	 * @param catalog user catalog file applied on top of the extraction, or null
+	 * @see #generate(Set, Path, boolean)
+	 */
+	public static void generate(final Set<Path> sourceRoots, final Path outDir, final boolean inferred,
+			final Path catalog) throws IOException {
 		Objects.requireNonNull(sourceRoots, "sourceRoots");
 		Objects.requireNonNull(outDir, "outDir");
 
@@ -63,7 +73,14 @@ public class GenerateEntityDiagram {
 		DeclaredIndex index = new DeclaredIndex();
 		index.fill(new SmartSourceRootManager().autoscan(DeterministicPathList.fromSourceRoots(sourceRoots)));
 
-		String mermaid = EntityMermaidRenderer.render(EntityExtractor.extract(index, inferred));
+		EntityView view = EntityExtractor.extract(index, inferred);
+		if (catalog != null) {
+			EntityCatalog entityCatalog = EntityCatalog.from(catalog);
+			view = entityCatalog.apply(view);
+			entityCatalog.warnings().forEach(w -> logger.log(Level.WARNING, () -> "Catalog: " + w));
+			logger.log(Level.INFO, () -> "Catalog: " + entityCatalog.size() + " entries read");
+		}
+		String mermaid = EntityMermaidRenderer.render(view);
 		Files.writeString(outputFile, mermaid, StandardCharsets.UTF_8);
 		logger.log(Level.INFO, () -> "Writing " + outputFile + " complete.");
 	}

@@ -11,6 +11,8 @@ public final class EntityMermaidRenderer {
 
 	static final String INFERRED_NOTE = "Dotted lines below are inferred relationships and are not certain";
 
+	static final String CATALOG_NOTE = "Relationships below come from the catalog";
+
 	static final String HIDDEN_INFERRED_NOTE = "%% There could be relationships that were not shown"
 			+ " - use '--inferred' to see the inferred relationships";
 
@@ -70,22 +72,31 @@ public final class EntityMermaidRenderer {
 			}
 			sb.append(INDENT).append("}\n");
 		}
+		List<EntityView.Relationship> catalog = new ArrayList<>();
 		List<EntityView.Relationship> inferred = new ArrayList<>();
 		for (EntityView.Relationship r : view.relationships()) {
-			if (r.inferred()) {
+			if (r.fromCatalog()) {
+				catalog.add(r);
+			} else if (r.inferred()) {
 				inferred.add(r);
 			} else {
 				appendRelationship(sb, r);
 			}
 		}
-		if (!inferred.isEmpty()) {
-			sb.append('\n');
-			appendNote(sb, INDENT, INFERRED_NOTE);
-			for (EntityView.Relationship r : inferred) {
-				appendRelationship(sb, r);
-			}
-		}
+		appendGroup(sb, CATALOG_NOTE, catalog);
+		appendGroup(sb, INFERRED_NOTE, inferred);
 		return sb.toString();
+	}
+
+	private static void appendGroup(StringBuilder sb, String note, List<EntityView.Relationship> relationships) {
+		if (relationships.isEmpty()) {
+			return;
+		}
+		sb.append('\n');
+		appendNote(sb, INDENT, note);
+		for (EntityView.Relationship r : relationships) {
+			appendRelationship(sb, r);
+		}
 	}
 
 	private static void appendRelationship(StringBuilder sb, EntityView.Relationship r) {
@@ -101,7 +112,7 @@ public final class EntityMermaidRenderer {
 			case ONE_TO_ONE -> "||--" + one;
 			case MANY_TO_MANY -> "}o--o{";
 		};
-		return r.inferred() ? symbol.replace("--", "..") : symbol;
+		return r.inferred() || r.dotted() ? symbol.replace("--", "..") : symbol;
 	}
 
 	/** Whole-line Mermaid comment, so it never breaks the attribute line. */
