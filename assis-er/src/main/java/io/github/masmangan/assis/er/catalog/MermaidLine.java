@@ -1,9 +1,11 @@
 package io.github.masmangan.assis.er.catalog;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.github.masmangan.assis.er.EntityView;
 import io.github.masmangan.assis.er.types.Cardinality;
 
 /**
@@ -15,14 +17,67 @@ final class MermaidLine {
 	private static final Pattern RELATIONSHIP = Pattern
 			.compile(NAME + "\\s+(\\S+)\\s+" + NAME + "\\s*:\\s*" + NAME);
 	private static final Pattern SYMBOL = Pattern.compile("([}|][o|])(--|\\.\\.)([o|][{|])");
-	private static final Pattern ENTITY_LIKE = Pattern
-			.compile(NAME + "\\s*(\\[\"[^\"]*\"\\])?\\s*(\\{.*\\})?");
+	private static final Pattern ENTITY_LIKE = Pattern.compile(NAME + "\\s*(?:[\\[{].*)?");
+	private static final Pattern ENTITY = Pattern
+			.compile(NAME + "\\s*(?:\\[\"([^\"]*)\"\\])?\\s*(?:\\{(.*)\\})?");
+	private static final Pattern KEY = Pattern.compile("(?i)PK|FK");
 
 	private MermaidLine() {
 	}
 
 	static boolean looksLikeEntity(String text) {
 		return ENTITY_LIKE.matcher(text).matches();
+	}
+
+	/** Entity line: an AddEntity for an alias or a bare name, one AddAttribute per block attribute. */
+	static List<CatalogEntry> entity(int line, String text, List<String> warnings) {
+		Matcher m = ENTITY.matcher(text);
+		if (!m.matches()) {
+			warnings.add("Line " + line + " ignored: expected <name>[\"<table>\"] { <type> <name> [PK] [FK]; ... }");
+			return List.of();
+		}
+		String name = name(m, 1);
+		if (!CatalogParser.validEntityName(line, name, warnings)) {
+			return List.of();
+		}
+		String table = m.group(3);
+		String block = m.group(4);
+		List<CatalogEntry> entries = new ArrayList<>();
+		if (table != null || block == null || block.isBlank()) {
+			entries.add(new AddEntity(line, name, table == null || table.isEmpty() ? null : table));
+		}
+		if (block != null) {
+			for (String piece : block.split(";")) {
+				if (!piece.isBlank()) {
+					EntityView.Attribute a = attribute(line, piece.trim(), warnings);
+					if (a != null) {
+						entries.add(new AddAttribute(line, name, a));
+					}
+				}
+			}
+		}
+		return entries;
+	}
+
+	private static EntityView.Attribute attribute(int line, String text, List<String> warnings) {
+		String[] words = text.split("\\s+", 3);
+		if (words.length < 2) {
+			warnings.add("Line " + line + ": attribute '" + text + "' ignored, expected <type> <name> [PK] [FK]");
+			return null;
+		}
+		boolean pk = false;
+		boolean fk = false;
+		if (words.length == 3) {
+			for (String key : words[2].split("[\\s,]+")) {
+				if (!KEY.matcher(key).matches()) {
+					warnings.add("Line " + line + ": attribute '" + text + "' ignored, unknown key '" + key + "'");
+					return null;
+				}
+				pk |= key.equalsIgnoreCase("PK");
+				fk |= key.equalsIgnoreCase("FK");
+			}
+		}
+		return CatalogParser.attribute(line, words[0], words[1], pk, fk, false, null, warnings);
 	}
 
 	/** Relationship line, or null with a warning added. */

@@ -245,4 +245,37 @@ class GenerateEntityDiagramSampleTest {
 		assertEquals(plain, generateWithCatalog(false, tempDir.resolve("missing.txt"), "missing"));
 		assertFalse(plain.contains(EntityMermaidRenderer.CATALOG_NOTE), plain);
 	}
+
+	private static final String FROM_CATALOG = "%% " + EntityMermaidRenderer.FROM_CATALOG_NOTE + "\n";
+
+	private static final String CATALOG_ADD_ENTITIES = "erDiagram\n"
+			+ "    \"Owner\" {\n        Long id PK\n    }\n"
+			+ "    " + FROM_CATALOG + "    \"Pet\"[\"pets\"]\n"
+			+ "    \"Visit\" {\n        Long id PK\n        " + FROM_CATALOG + "        PetId petId FK\n"
+			+ "        Set~PetId~? pastPets\n        " + FROM_CATALOG + "        String? notes\n    }\n"
+			+ "    " + FROM_CATALOG + "    \"AuditLog\"[\"audit_log\"] {\n        " + FROM_CATALOG
+			+ "        Long id PK\n    }\n"
+			+ "    \"Pet\" }o--o| \"Owner\" : \"owner\"\n"
+			+ "\n"
+			+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
+			+ "    \"AuditLog\" }o--o| \"Visit\" : \"visit\"\n";
+
+	@Test
+	void addsEntitiesAndAttributesFromCatalog() throws Exception {
+		// CG4
+		assertEquals(EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\n" + CATALOG_ADD_ENTITIES,
+				generateWithCatalog(false, sample("samples/catalog-files/entity-catalog-add.txt"), "out"));
+	}
+
+	@Test
+	void addedItemsWithInferred() throws Exception {
+		// CG5
+		String expected = CATALOG_ADD_ENTITIES
+				+ "\n"
+				+ "    %% " + EntityMermaidRenderer.INFERRED_NOTE + "\n"
+				+ "    \"Visit\" }o..|| \"Pet\" : \"petId\"\n"
+				+ "    \"Visit\" ||..o{ \"Pet\" : \"pastPets\"\n";
+		assertEquals(expected,
+				generateWithCatalog(true, sample("samples/catalog-files/entity-catalog-add.txt"), "out"));
+	}
 }

@@ -59,12 +59,17 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	/**
 	 * @param name       simple name of the entity class
 	 * @param attributes persistent fields, in declaration order
-	 * @param tableName  Table name when it differs from the class name, else null
+	 * @param tableName   Table name when it differs from the class name, else null
+	 * @param fromCatalog true when created by the catalog or its table set by it
 	 */
-	public record Entity(String name, List<Attribute> attributes, String tableName) {
+	public record Entity(String name, List<Attribute> attributes, String tableName, boolean fromCatalog) {
 
 		public Entity {
 			attributes = List.copyOf(attributes);
+		}
+
+		public Entity(String name, List<Attribute> attributes, String tableName) {
+			this(name, attributes, tableName, false);
 		}
 
 		public Entity(String name, List<Attribute> attributes) {
@@ -81,10 +86,16 @@ public record EntityView(List<Entity> entities, List<Relationship> relationships
 	 * @param foreignKey true for a single-valued field inferred as an ID reference
 	 * @param nullable   true unless an id, a primitive, Column nullable = false or
 	 *                   Basic optional = false
-	 * @param columnName Column name when it differs from the field name, else null
+	 * @param columnName  Column name when it differs from the field name, else null
+	 * @param fromCatalog true when added or replaced by the catalog
 	 */
 	public record Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean nullable,
-			String columnName) {
+			String columnName, boolean fromCatalog) {
+
+		public Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean nullable,
+				String columnName) {
+			this(type, name, primaryKey, foreignKey, nullable, columnName, false);
+		}
 
 		public Attribute(String type, String name, boolean primaryKey, boolean foreignKey, boolean nullable) {
 			this(type, name, primaryKey, foreignKey, nullable, null);

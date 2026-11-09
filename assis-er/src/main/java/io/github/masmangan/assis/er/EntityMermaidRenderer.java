@@ -13,6 +13,8 @@ public final class EntityMermaidRenderer {
 
 	static final String CATALOG_NOTE = "Relationships below come from the catalog";
 
+	static final String FROM_CATALOG_NOTE = "from catalog";
+
 	static final String HIDDEN_INFERRED_NOTE = "%% There could be relationships that were not shown"
 			+ " - use '--inferred' to see the inferred relationships";
 
@@ -24,6 +26,16 @@ public final class EntityMermaidRenderer {
 	private static final Pattern ENTITY_NAME = Pattern.compile("[^\"%\\r\\n\\x0B\\x08\\\\]+");
 
 	private EntityMermaidRenderer() {
+	}
+
+	/** True when the name can be written as a quoted entity name or alias. */
+	public static boolean isEntityName(String name) {
+		return ENTITY_NAME.matcher(name).matches();
+	}
+
+	/** True when the name can be written as a bare attribute name. */
+	public static boolean isAttributeWord(String name) {
+		return ATTRIBUTE_WORD.matcher(name).matches();
 	}
 
 	/**
@@ -40,6 +52,9 @@ public final class EntityMermaidRenderer {
 		sb.append("erDiagram\n");
 		for (EntityView.Entity entity : view.entities()) {
 			boolean alias = entity.tableName() != null && ENTITY_NAME.matcher(entity.tableName()).matches();
+			if (entity.fromCatalog()) {
+				appendNote(sb, INDENT, FROM_CATALOG_NOTE);
+			}
 			if (entity.tableName() != null && !alias) {
 				appendNote(sb, INDENT, "table: " + entity.tableName());
 			}
@@ -54,6 +69,9 @@ public final class EntityMermaidRenderer {
 			sb.append(" {\n");
 			for (EntityView.Attribute a : entity.attributes()) {
 				String name = a.name();
+				if (a.fromCatalog()) {
+					appendNote(sb, INDENT + INDENT, FROM_CATALOG_NOTE);
+				}
 				if (a.columnName() != null && ATTRIBUTE_WORD.matcher(a.columnName()).matches()) {
 					name = a.columnName();
 					appendNote(sb, INDENT + INDENT, a.name());

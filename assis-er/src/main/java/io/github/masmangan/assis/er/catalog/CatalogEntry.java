@@ -7,7 +7,7 @@ import io.github.masmangan.assis.er.EntityView;
 /**
  * One parsed catalog line. Entries are applied by phase, then in file order.
  */
-sealed interface CatalogEntry permits AddRelationship {
+sealed interface CatalogEntry permits AddRelationship, AddEntity, AddAttribute {
 
 	enum Phase {
 		ADD_ENTITY, ADD_RELATIONSHIP, REMOVE

@@ -38,6 +38,10 @@ public final class EntityCatalog {
 		}
 	}
 
+	static EntityCatalog of(CatalogEntry... entries) {
+		return new EntityCatalog(List.of(entries), List.of());
+	}
+
 	public static EntityCatalog fromText(String text) {
 		CatalogParser.Result result = CatalogParser.parse(text);
 		return new EntityCatalog(result.entries(), result.warnings());

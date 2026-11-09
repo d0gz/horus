@@ -355,4 +355,53 @@ class EntityMermaidRendererTest {
 				+ "    \"Pet\" }o..|| \"Owner\" : \"a\"\n"
 				+ "    \"Pet\" }o..o| \"Owner\" : \"b\"\n", EntityMermaidRenderer.render(view));
 	}
+
+	private static final String FROM_CATALOG = "%% " + EntityMermaidRenderer.FROM_CATALOG_NOTE + "\n";
+
+	@Test
+	void catalogEntityGetsNote() {
+		// CR5
+		var view = new EntityView(List.of(new EntityView.Entity("Log", List.of(), null, true),
+				new EntityView.Entity("Owner", List.of(), "owners", true)));
+
+		assertEquals("erDiagram\n    " + FROM_CATALOG + "    \"Log\"\n    " + FROM_CATALOG
+				+ "    \"Owner\"[\"owners\"]\n", EntityMermaidRenderer.render(view));
+	}
+
+	@Test
+	void catalogNoteComesBeforeTableNote() {
+		// CR6
+		var view = new EntityView(List.of(new EntityView.Entity("Owner", List.of(), "50%", true)));
+
+		assertEquals("erDiagram\n    " + FROM_CATALOG + "    %% table: 50%\n    \"Owner\"\n",
+				EntityMermaidRenderer.render(view));
+	}
+
+	@Test
+	void catalogAttributeGetsNoteBeforeColumnNote() {
+		// CR7
+		assertEquals("erDiagram\n    \"Owner\" {\n        " + FROM_CATALOG + "        String? notes\n    }\n",
+				renderAttribute(new EntityView.Attribute("String", "notes", false, false, true, null, true)));
+		assertEquals("erDiagram\n    \"Owner\" {\n        " + FROM_CATALOG
+				+ "        %% notes\n        String visit_notes\n    }\n",
+				renderAttribute(new EntityView.Attribute("String", "notes", false, false, false, "visit_notes", true)));
+	}
+
+	@Test
+	void noCatalogItemsNoNote() {
+		// CR8
+		var view = new EntityView(List.of(new EntityView.Entity("Owner", owner().attributes(), "owners")));
+
+		assertFalse(EntityMermaidRenderer.render(view).contains(EntityMermaidRenderer.FROM_CATALOG_NOTE));
+	}
+
+	@Test
+	void exposesNamePatterns() {
+		assertTrue(EntityMermaidRenderer.isEntityName("Audit Log"));
+		assertFalse(EntityMermaidRenderer.isEntityName("A\"B"));
+		assertFalse(EntityMermaidRenderer.isEntityName("100%"));
+		assertTrue(EntityMermaidRenderer.isAttributeWord("visit_notes"));
+		assertFalse(EntityMermaidRenderer.isAttributeWord("PK"));
+		assertFalse(EntityMermaidRenderer.isAttributeWord("1x"));
+	}
 }
