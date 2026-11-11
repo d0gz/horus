@@ -106,59 +106,6 @@ java -jar assis.jar
 ASSIS will:
 - Scan Java source files in the current folder
 - Generate UML diagrams in PlantUML format under `docs/diagrams/src/`
-- Generate an entity diagram of your JPA `@Entity` classes in Mermaid format (`entity-diagram.mmd`) in the same folder
-
-To generate only one of them, pass `--class` (class diagram) or `--er` (entity diagram):
-
-```bash
-java -jar assis.jar --er
-```
-
-With `--er`, add `--inferred` to also draw links deduced from ID-typed fields
-(DDD style, `OwnerId ownerId`). They are drawn dotted because they are guesses:
-
-```bash
-java -jar assis.jar --er --inferred
-```
-
-If the entity diagram misses a relationship, an entity or an attribute, shows one too many, or draws one wrong, write it in a
-**catalog** file and pass it with `--catalog`. The catalog wins over what ASSIS found.
-One entry per line, fields separated by `|`; `#` starts a comment:
-
-```text
-# entity-catalog.txt
-add relationship | Visit | Pet | many-to-one | petId | required
-add relationship | Owner | Pet | one-to-many | pets
-add relationship | Visit | Vet | many-to-one | vetId | required, dotted
-add entity | AuditLog | audit_log
-add attribute | Visit | String | notes | nullable
-add attribute | Visit | PetId | petId | fk, nullable
-remove entity | Helper
-remove relationship | Pet | Pet | mother
-```
-
-```bash
-java -jar assis.jar --er --catalog entity-catalog.txt
-```
-
-| Line | Values |
-|------------|--------|
-| `add relationship \| <from> \| <to> \| <cardinality> \| <label> [\| <flags>]` | cardinality: `many-to-one`, `one-to-many`, `one-to-one`, `many-to-many`; flags: `required`, `dotted` |
-| `add entity \| <name> [\| <table>]` | creates the entity, or sets the table name of an existing one |
-| `add attribute \| <entity> \| <type> \| <name> [\| <flags>]` | flags: `pk`, `fk`, `nullable`, `column=<name>`; not nullable unless `nullable` is given |
-| `remove relationship \| <from> \| <to> \| <label>` | removes that relationship |
-| `remove attribute \| <entity> \| <name>` | removes that attribute (by name or column name) |
-| `remove entity \| <name>` | removes the entity and all its relationships |
-
-Both entities of a relationship must exist in the diagram or be added by the catalog;
-otherwise the line is skipped with a warning.
-`add attribute` creates the entity when it is missing. An attribute with the same name
-(or the same column name) as a found one replaces it in place; a new one is added at the end.
-Entities and attributes added or changed by the catalog get a `%% from catalog` line above them.
-Removals are applied after all additions, so they always win.
-A catalog line with the same from, to and label as a found relationship replaces it.
-Catalog relationships are listed after the comment `%% Relationships below come from the catalog`.
-Problems in the file are logged as warnings; the diagram is still generated.
 
 > **Tip**  
 > Make your life easier by creating an alias:
@@ -175,8 +122,7 @@ Problems in the file are logged as warnings; the diagram is still generated.
 
 ## Step 7: Open the generated diagram
 
-Look for the generated `class-diagram.puml` file. Next to it you will find
-`entity-diagram.mmd`; without `@Entity` classes it only contains `erDiagram`.
+Look for the generated `class-diagram.puml` file.
 
 A minimal example looks like:
 
