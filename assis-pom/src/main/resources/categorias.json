@@ -3,190 +3,605 @@
   "descricao": "Tabela de classificacao de dependencias Maven usada pelo Horus para agrupar e colorir os elementos do diagrama. Avaliada de cima para baixo: a primeira regra que casar vence. Dependencias que nao casarem com nenhuma regra recebem a categoria padrao.",
   "fonte": "Curadoria dos autores a partir da documentacao oficial de cada projeto e das keywords publicadas em libraries.io. Cada regra registra a justificativa no campo nota.",
   "padrao": "nao-classificada",
-
   "categorias": [
     {
       "id": "web",
       "rotulo": "Web e API",
-      "cor": { "preenchimento": "#dbeafe", "borda": "#2563eb", "texto": "#1e3a8a" }
+      "cor": {
+        "preenchimento": "#dbeafe",
+        "borda": "#2563eb",
+        "texto": "#1e3a8a"
+      }
     },
     {
       "id": "persistencia",
       "rotulo": "Persistencia",
-      "cor": { "preenchimento": "#dcfce7", "borda": "#16a34a", "texto": "#14532d" }
+      "cor": {
+        "preenchimento": "#dcfce7",
+        "borda": "#16a34a",
+        "texto": "#14532d"
+      }
     },
     {
       "id": "seguranca",
       "rotulo": "Seguranca",
-      "cor": { "preenchimento": "#fee2e2", "borda": "#dc2626", "texto": "#7f1d1d" }
+      "cor": {
+        "preenchimento": "#fee2e2",
+        "borda": "#dc2626",
+        "texto": "#7f1d1d"
+      }
     },
     {
       "id": "observabilidade",
       "rotulo": "Observabilidade",
-      "cor": { "preenchimento": "#ede9fe", "borda": "#7c3aed", "texto": "#4c1d95" }
+      "cor": {
+        "preenchimento": "#ede9fe",
+        "borda": "#7c3aed",
+        "texto": "#4c1d95"
+      }
     },
     {
       "id": "infraestrutura",
       "rotulo": "Infraestrutura e Nuvem",
-      "cor": { "preenchimento": "#ffedd5", "borda": "#ea580c", "texto": "#7c2d12" }
+      "cor": {
+        "preenchimento": "#ffedd5",
+        "borda": "#ea580c",
+        "texto": "#7c2d12"
+      }
     },
     {
       "id": "teste",
       "rotulo": "Teste",
-      "cor": { "preenchimento": "#f1f5f9", "borda": "#64748b", "texto": "#0f172a" }
+      "cor": {
+        "preenchimento": "#f1f5f9",
+        "borda": "#64748b",
+        "texto": "#0f172a"
+      }
     },
     {
       "id": "utilitario",
       "rotulo": "Utilitario e Desenvolvimento",
-      "cor": { "preenchimento": "#fef9c3", "borda": "#ca8a04", "texto": "#713f12" }
+      "cor": {
+        "preenchimento": "#fef9c3",
+        "borda": "#ca8a04",
+        "texto": "#713f12"
+      }
     },
     {
       "id": "nao-classificada",
       "rotulo": "Nao classificada",
-      "cor": { "preenchimento": "#ffffff", "borda": "#94a3b8", "texto": "#334155" }
+      "cor": {
+        "preenchimento": "#ffffff",
+        "borda": "#94a3b8",
+        "texto": "#334155"
+      }
     }
   ],
-
   "regras": [
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-test",
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-test",
       "categoria": "teste",
-      "nota": "Agregador de JUnit, AssertJ e Mockito. Regra antes das demais starter para nao ser capturada por prefixo." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-devtools",
-      "categoria": "utilitario",
-      "nota": "Recarga automatica em desenvolvimento. Nao compoe o sistema em producao." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-security",
+      "nota": "Agregador de JUnit, AssertJ e Mockito. Regra antes das demais starter para nao ser capturada por prefixo."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-testcontainers",
+      "categoria": "teste",
+      "nota": "Integracao do Spring Boot com Testcontainers, uso exclusivo em teste."
+    },
+    {
+      "groupIdPrefixo": "org.testcontainers",
+      "categoria": "teste",
+      "nota": "Containers efemeros para teste de integracao."
+    },
+    {
+      "groupIdPrefixo": "io.rest-assured",
+      "categoria": "teste",
+      "nota": "Biblioteca de teste de APIs REST."
+    },
+    {
+      "groupIdPrefixo": "org.springframework.restdocs",
+      "categoria": "teste",
+      "nota": "Documentacao de API gerada a partir de testes."
+    },
+    {
+      "groupIdPrefixo": "com.tngtech.archunit",
+      "categoria": "teste",
+      "nota": "Teste de regras de arquitetura."
+    },
+    {
+      "groupIdPrefixo": "org.junit",
+      "categoria": "teste",
+      "nota": "Framework de teste."
+    },
+    {
+      "groupId": "junit",
+      "artifactId": "junit",
+      "categoria": "teste",
+      "nota": "JUnit 4 legacy."
+    },
+    {
+      "groupId": "org.mockito",
+      "categoria": "teste",
+      "nota": "Objetos dublê para teste."
+    },
+    {
+      "groupId": "org.assertj",
+      "categoria": "teste",
+      "nota": "Asserções fluentes."
+    },
+    {
+      "groupId": "org.hamcrest",
+      "categoria": "teste",
+      "nota": "Biblioteca de matchers para testes."
+    },
+    {
+      "groupIdPrefixo": "org.seleniumhq.selenium",
+      "categoria": "teste",
+      "nota": "Testes de interface de usuario."
+    },
+    {
+      "groupId": "com.github.tomakehurst",
+      "artifactId": "wiremock",
+      "categoria": "teste",
+      "nota": "Mock de APIs HTTP."
+    },
+    {
+      "groupIdPrefixo": "io.cucumber",
+      "categoria": "teste",
+      "nota": "Framework para BDD (Behavior-Driven Development)."
+    },
+    {
+      "groupId": "org.jacoco",
+      "categoria": "teste",
+      "nota": "Cobertura de codigo."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-security",
       "categoria": "seguranca",
-      "nota": "Autenticacao e autorizacao." },
-
-    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-oauth2",
+      "nota": "Autenticacao e autorizacao."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactIdPrefixo": "spring-boot-starter-oauth2",
       "categoria": "seguranca",
-      "nota": "Cliente e servidor de recursos OAuth2." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-actuator",
+      "nota": "Cliente e servidor de recursos OAuth2."
+    },
+    {
+      "groupId": "org.keycloak",
+      "categoria": "seguranca",
+      "nota": "Servidor de identidade. Aparece no diagrama de referencia do PetClinic."
+    },
+    {
+      "groupId": "io.jsonwebtoken",
+      "categoria": "seguranca",
+      "nota": "Emissao e validacao de JWT (JJWT)."
+    },
+    {
+      "groupIdPrefixo": "com.nimbusds",
+      "categoria": "seguranca",
+      "nota": "Manipulacao de JWT e OAuth2 (Nimbus JOSE + JWT)."
+    },
+    {
+      "groupIdPrefixo": "org.bouncycastle",
+      "categoria": "seguranca",
+      "nota": "APIs de criptografia e provedor de seguranca."
+    },
+    {
+      "groupIdPrefixo": "org.apache.shiro",
+      "categoria": "seguranca",
+      "nota": "Framework de seguranca alternativo."
+    },
+    {
+      "groupIdPrefixo": "com.auth0",
+      "categoria": "seguranca",
+      "nota": "SDK do Auth0 e JWT."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-actuator",
       "categoria": "observabilidade",
-      "nota": "Endpoints de saude e metricas." },
-
-    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-data",
-      "categoria": "persistencia",
-      "nota": "Familia Spring Data: jpa, jdbc, mongodb, redis." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-validation",
+      "nota": "Endpoints de saude e metricas."
+    },
+    {
+      "groupId": "io.micrometer",
+      "categoria": "observabilidade",
+      "nota": "Coleta de metricas."
+    },
+    {
+      "groupId": "org.slf4j",
+      "categoria": "observabilidade",
+      "nota": "Fachada de log."
+    },
+    {
+      "groupId": "ch.qos.logback",
+      "categoria": "observabilidade",
+      "nota": "Implementacao de log."
+    },
+    {
+      "groupIdPrefixo": "org.apache.logging.log4j",
+      "categoria": "observabilidade",
+      "nota": "Log4j 2."
+    },
+    {
+      "groupId": "log4j",
+      "categoria": "observabilidade",
+      "nota": "Log4j legado."
+    },
+    {
+      "groupId": "commons-logging",
+      "categoria": "observabilidade",
+      "nota": "Fachada de log da Apache."
+    },
+    {
+      "groupIdPrefixo": "io.opentelemetry",
+      "categoria": "observabilidade",
+      "nota": "OpenTelemetry para tracing e metricas."
+    },
+    {
+      "groupIdPrefixo": "io.prometheus",
+      "categoria": "observabilidade",
+      "nota": "Cliente do Prometheus."
+    },
+    {
+      "groupIdPrefixo": "io.zipkin",
+      "categoria": "observabilidade",
+      "nota": "Tracing distribuido."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-validation",
       "categoria": "web",
-      "nota": "Bean Validation. Classificada como Web por ser usada predominantemente na validacao de payloads de entrada da API. Decisao dos autores, revisar se o caso de estudo mostrar uso diferente." },
-
-    { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-web",
+      "nota": "Bean Validation. Classificada como Web por ser usada predominantemente na validacao de payloads."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactIdPrefixo": "spring-boot-starter-web",
       "categoria": "web",
-      "nota": "Cobre spring-boot-starter-web e spring-boot-starter-webflux." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-thymeleaf",
+      "nota": "Cobre spring-boot-starter-web e spring-boot-starter-webflux."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-thymeleaf",
       "categoria": "web",
-      "nota": "Renderizacao de paginas no servidor." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-mail",
+      "nota": "Renderizacao de paginas no servidor."
+    },
+    {
+      "groupId": "com.squareup.okhttp3",
+      "categoria": "web",
+      "nota": "Cliente HTTP para consumo de APIs REST."
+    },
+    {
+      "groupIdPrefixo": "org.apache.httpcomponents",
+      "categoria": "web",
+      "nota": "Apache HttpClient."
+    },
+    {
+      "groupIdPrefixo": "io.netty",
+      "categoria": "web",
+      "nota": "Framework de rede assincrono, muito usado em servidores Web (WebFlux)."
+    },
+    {
+      "groupIdPrefixo": "org.apache.tomcat",
+      "categoria": "web",
+      "nota": "Servidor Web embutido Tomcat."
+    },
+    {
+      "groupIdPrefixo": "org.eclipse.jetty",
+      "categoria": "web",
+      "nota": "Servidor Web embutido Jetty."
+    },
+    {
+      "groupIdPrefixo": "io.undertow",
+      "categoria": "web",
+      "nota": "Servidor Web embutido Undertow."
+    },
+    {
+      "groupIdPrefixo": "org.springdoc",
+      "categoria": "web",
+      "nota": "Geracao de documentacao OpenAPI (Swagger 3)."
+    },
+    {
+      "groupIdPrefixo": "io.springfox",
+      "categoria": "web",
+      "nota": "Geracao de documentacao OpenAPI legada (Swagger 2)."
+    },
+    {
+      "groupIdPrefixo": "com.squareup.retrofit2",
+      "categoria": "web",
+      "nota": "Cliente HTTP Retrofit."
+    },
+    {
+      "groupIdPrefixo": "io.github.openfeign",
+      "categoria": "web",
+      "nota": "Cliente HTTP declarativo Feign."
+    },
+    {
+      "groupIdPrefixo": "org.glassfish.jersey",
+      "categoria": "web",
+      "nota": "Implementacao JAX-RS (Jersey)."
+    },
+    {
+      "groupIdPrefixo": "com.graphql-java",
+      "categoria": "web",
+      "nota": "Implementacao GraphQL."
+    },
+    {
+      "groupId": "jakarta.validation",
+      "categoria": "web",
+      "nota": "API de Bean Validation."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactIdPrefixo": "spring-boot-starter-data",
+      "categoria": "persistencia",
+      "nota": "Familia Spring Data: jpa, jdbc, mongodb, redis."
+    },
+    {
+      "groupId": "com.h2database",
+      "artifactId": "h2",
+      "categoria": "persistencia",
+      "nota": "Banco de dados em memoria."
+    },
+    {
+      "groupId": "org.postgresql",
+      "artifactId": "postgresql",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do PostgreSQL."
+    },
+    {
+      "groupId": "com.mysql",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do MySQL."
+    },
+    {
+      "groupId": "com.oracle.database.jdbc",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do Oracle."
+    },
+    {
+      "groupId": "com.microsoft.sqlserver",
+      "categoria": "persistencia",
+      "nota": "Driver JDBC do SQL Server."
+    },
+    {
+      "groupId": "org.flywaydb",
+      "categoria": "persistencia",
+      "nota": "Versionamento e migracao de esquema de banco."
+    },
+    {
+      "groupId": "org.liquibase",
+      "categoria": "persistencia",
+      "nota": "Versionamento e migracao de esquema de banco."
+    },
+    {
+      "groupId": "org.hibernate",
+      "categoria": "persistencia",
+      "nota": "Mapeamento objeto-relacional."
+    },
+    {
+      "groupId": "org.hibernate.orm",
+      "categoria": "persistencia",
+      "nota": "Mapeamento objeto-relacional (novos pacotes)."
+    },
+    {
+      "groupId": "org.mybatis",
+      "categoria": "persistencia",
+      "nota": "Framework de mapeamento SQL (MyBatis)."
+    },
+    {
+      "groupId": "com.zaxxer",
+      "artifactId": "HikariCP",
+      "categoria": "persistencia",
+      "nota": "Pool de conexoes de banco de dados padrao do Spring Boot."
+    },
+    {
+      "groupId": "redis.clients",
+      "artifactId": "jedis",
+      "categoria": "persistencia",
+      "nota": "Cliente Redis (Jedis)."
+    },
+    {
+      "groupIdPrefixo": "io.lettuce",
+      "categoria": "persistencia",
+      "nota": "Cliente Redis reativo (Lettuce)."
+    },
+    {
+      "groupIdPrefixo": "org.mongodb",
+      "categoria": "persistencia",
+      "nota": "Drivers do MongoDB."
+    },
+    {
+      "groupIdPrefixo": "org.neo4j",
+      "categoria": "persistencia",
+      "nota": "Driver do Neo4j (Grafos)."
+    },
+    {
+      "groupId": "jakarta.persistence",
+      "categoria": "persistencia",
+      "nota": "API do JPA."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-starter-mail",
       "categoria": "infraestrutura",
-      "nota": "Integracao com servidor de email externo." },
-
-    { "groupId": "org.projectlombok", "artifactId": "lombok",
+      "nota": "Integracao com servidor de email externo."
+    },
+    {
+      "groupIdPrefixo": "software.amazon.awssdk",
+      "categoria": "infraestrutura",
+      "nota": "SDK oficial da AWS, versao 2."
+    },
+    {
+      "groupIdPrefixo": "com.amazonaws",
+      "categoria": "infraestrutura",
+      "nota": "SDK da AWS, versao 1. Usado no caso de estudo imagerec."
+    },
+    {
+      "groupIdPrefixo": "com.google.cloud",
+      "categoria": "infraestrutura",
+      "nota": "Bibliotecas do Google Cloud."
+    },
+    {
+      "groupIdPrefixo": "com.azure",
+      "categoria": "infraestrutura",
+      "nota": "SDK do Microsoft Azure."
+    },
+    {
+      "groupIdPrefixo": "dev.langchain4j",
+      "categoria": "infraestrutura",
+      "nota": "Framework de integracao com modelos de linguagem (LLM) e agentes de IA."
+    },
+    {
+      "groupIdPrefixo": "io.modelcontextprotocol.sdk",
+      "categoria": "infraestrutura",
+      "nota": "SDK do Model Context Protocol (MCP) para integracao."
+    },
+    {
+      "groupIdPrefixo": "org.springframework.cloud",
+      "categoria": "infraestrutura",
+      "nota": "Ecossistema Spring Cloud (Gateway, Config, Eureka, etc)."
+    },
+    {
+      "groupIdPrefixo": "org.apache.kafka",
+      "categoria": "infraestrutura",
+      "nota": "Mensageria com Apache Kafka."
+    },
+    {
+      "groupIdPrefixo": "org.springframework.kafka",
+      "categoria": "infraestrutura",
+      "nota": "Integracao do Spring com Kafka."
+    },
+    {
+      "groupIdPrefixo": "com.rabbitmq",
+      "categoria": "infraestrutura",
+      "nota": "Mensageria com RabbitMQ."
+    },
+    {
+      "groupIdPrefixo": "org.apache.activemq",
+      "categoria": "infraestrutura",
+      "nota": "Mensageria com ActiveMQ."
+    },
+    {
+      "groupIdPrefixo": "io.grpc",
+      "categoria": "infraestrutura",
+      "nota": "RPC framework de alta performance."
+    },
+    {
+      "groupIdPrefixo": "com.google.protobuf",
+      "categoria": "infraestrutura",
+      "nota": "Serializacao via Protocol Buffers."
+    },
+    {
+      "groupIdPrefixo": "io.github.resilience4j",
+      "categoria": "infraestrutura",
+      "nota": "Tolerancia a falhas (Circuit Breaker, Rate Limiter)."
+    },
+    {
+      "groupIdPrefixo": "org.quartz-scheduler",
+      "categoria": "infraestrutura",
+      "nota": "Agendamento de tarefas (Cron)."
+    },
+    {
+      "groupId": "org.springframework.boot",
+      "artifactId": "spring-boot-devtools",
       "categoria": "utilitario",
-      "nota": "Geracao de codigo em tempo de compilacao. Escopo provided." },
-
-    { "groupId": "org.mapstruct",
+      "nota": "Recarga automatica em desenvolvimento. Nao compoe o sistema em producao."
+    },
+    {
+      "groupId": "org.projectlombok",
+      "artifactId": "lombok",
       "categoria": "utilitario",
-      "nota": "Mapeamento entre objetos em tempo de compilacao." },
-
-    { "groupId": "com.h2database", "artifactId": "h2",
-      "categoria": "persistencia",
-      "nota": "Banco de dados em memoria." },
-
-    { "groupId": "org.postgresql", "artifactId": "postgresql",
-      "categoria": "persistencia",
-      "nota": "Driver JDBC do PostgreSQL." },
-
-    { "groupId": "com.mysql",
-      "categoria": "persistencia",
-      "nota": "Driver JDBC do MySQL." },
-
-    { "groupId": "org.flywaydb",
-      "categoria": "persistencia",
-      "nota": "Versionamento e migracao de esquema de banco." },
-
-    { "groupId": "org.liquibase",
-      "categoria": "persistencia",
-      "nota": "Versionamento e migracao de esquema de banco." },
-
-    { "groupId": "org.hibernate",
-      "categoria": "persistencia",
-      "nota": "Mapeamento objeto-relacional." },
-
-    { "groupIdPrefixo": "software.amazon.awssdk",
-      "categoria": "infraestrutura",
-      "nota": "SDK oficial da AWS, versao 2." },
-
-    { "groupIdPrefixo": "com.amazonaws",
-      "categoria": "infraestrutura",
-      "nota": "SDK da AWS, versao 1. Usado no caso de estudo imagerec." },
-
-    { "groupIdPrefixo": "com.google.cloud",
-      "categoria": "infraestrutura",
-      "nota": "Bibliotecas do Google Cloud." },
-
-    { "groupId": "org.keycloak",
-      "categoria": "seguranca",
-      "nota": "Servidor de identidade. Aparece no diagrama de referencia do PetClinic." },
-
-    { "groupId": "io.jsonwebtoken",
-      "categoria": "seguranca",
-      "nota": "Emissao e validacao de JWT." },
-
-    { "groupId": "io.micrometer",
-      "categoria": "observabilidade",
-      "nota": "Coleta de metricas." },
-
-    { "groupId": "org.slf4j",
-      "categoria": "observabilidade",
-      "nota": "Fachada de log." },
-
-    { "groupId": "ch.qos.logback",
-      "categoria": "observabilidade",
-      "nota": "Implementacao de log." },
-
-    { "groupIdPrefixo": "org.junit",
-      "categoria": "teste",
-      "nota": "Framework de teste." },
-
-    { "groupId": "org.mockito",
-      "categoria": "teste",
-      "nota": "Objetos dublê para teste." },
-
-    { "groupId": "org.assertj",
-      "categoria": "teste",
-      "nota": "Asserções fluentes." },
-
-    { "groupIdPrefixo": "org.testcontainers",
-      "categoria": "teste",
-      "nota": "Containers efemeros para teste de integracao." },
-
-    { "groupId": "org.springframework.boot", "artifactId": "spring-boot-testcontainers",
-      "categoria": "teste", "nota": "Integracao do Spring Boot com Testcontainers, uso exclusivo em teste." },
-    { "groupIdPrefixo": "com.fasterxml.jackson",
-      "categoria": "utilitario", "nota": "Serializacao e desserializacao JSON." },
-    { "groupIdPrefixo": "io.rest-assured",
-      "categoria": "teste", "nota": "Biblioteca de teste de APIs REST." },
-    { "groupIdPrefixo": "org.springframework.restdocs", "categoria": "teste",
-      "nota": "Documentacao de API gerada a partir de testes." },
-    { "groupIdPrefixo": "com.tngtech.archunit", "categoria": "teste",
-      "nota": "Teste de regras de arquitetura." },
-    { "groupIdPrefixo": "io.github.wimdeblauwe", "categoria": "utilitario",
-      "nota": "Bibliotecas de apoio usadas no caso de estudo PetClinic." },
-
-
-
-    { "groupIdPrefixo": "org.springframework",
+      "nota": "Geracao de codigo em tempo de compilacao. Escopo provided."
+    },
+    {
+      "groupIdPrefixo": "org.mapstruct",
       "categoria": "utilitario",
-      "nota": "Regra final da familia Spring. Captura artefatos do ecossistema que nao casaram com nenhuma regra especifica acima. Deve permanecer sempre por ultimo entre as regras de org.springframework." }
-
+      "nota": "Mapeamento entre objetos em tempo de compilacao."
+    },
+    {
+      "groupIdPrefixo": "com.fasterxml.jackson",
+      "categoria": "utilitario",
+      "nota": "Serializacao e desserializacao JSON."
+    },
+    {
+      "groupId": "com.google.code.gson",
+      "categoria": "utilitario",
+      "nota": "Serializacao JSON pelo Google."
+    },
+    {
+      "groupIdPrefixo": "com.google.guava",
+      "categoria": "utilitario",
+      "nota": "Biblioteca de colecoes e utilitarios do Google."
+    },
+    {
+      "groupIdPrefixo": "org.apache.commons",
+      "categoria": "utilitario",
+      "nota": "Utilitarios Apache (commons-lang3, commons-text, etc)."
+    },
+    {
+      "groupId": "commons-io",
+      "categoria": "utilitario",
+      "nota": "Utilitarios Apache de Input/Output."
+    },
+    {
+      "groupId": "commons-codec",
+      "categoria": "utilitario",
+      "nota": "Codificacao e decodificacao (Base64, Hex)."
+    },
+    {
+      "groupId": "commons-collections",
+      "categoria": "utilitario",
+      "nota": "Utilitarios de colecoes Apache legados."
+    },
+    {
+      "groupIdPrefixo": "io.projectreactor",
+      "categoria": "utilitario",
+      "nota": "Programacao reativa nativa do Spring (Reactor Core)."
+    },
+    {
+      "groupIdPrefixo": "io.reactivex",
+      "categoria": "utilitario",
+      "nota": "Programacao reativa via RxJava."
+    },
+    {
+      "groupId": "io.github.cdimascio",
+      "artifactId": "dotenv-java",
+      "categoria": "utilitario",
+      "nota": "Carregamento de variaveis de ambiente a partir de arquivo .env."
+    },
+    {
+      "groupId": "black.ninja",
+      "artifactId": "jep",
+      "categoria": "utilitario",
+      "nota": "Interoperabilidade Java-Python via Java Embedded Python (JEP)."
+    },
+    {
+      "groupIdPrefixo": "org.graalvm.polyglot",
+      "categoria": "utilitario",
+      "nota": "Engine de execucao multilinguagem GraalVM Polyglot."
+    },
+    {
+      "groupIdPrefixo": "joda-time",
+      "categoria": "utilitario",
+      "nota": "Manipulacao de datas (legado pre-Java 8)."
+    },
+    {
+      "groupIdPrefixo": "io.vavr",
+      "categoria": "utilitario",
+      "nota": "Programacao funcional no Java."
+    },
+    {
+      "groupIdPrefixo": "io.github.wimdeblauwe",
+      "categoria": "utilitario",
+      "nota": "Bibliotecas de apoio usadas no caso de estudo PetClinic."
+    },
+    {
+      "groupIdPrefixo": "org.springframework",
+      "categoria": "utilitario",
+      "nota": "Regra final da familia Spring. Captura artefatos do ecossistema que nao casaram com nenhuma regra especifica acima. Deve permanecer sempre por ultimo entre as regras de org.springframework."
+    }
   ]
 }

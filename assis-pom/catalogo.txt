@@ -1,4 +1,4 @@
 # catalogo da equipe
 io.github.wimdeblauwe:jpearl-core | Dominio | #e0f2fe | Geracao de identificadores de entidade
-io.github.wimdeblauwe:error-handling-spring-boot-starter | Web e API | | Tratamento centralizado de erros
+io.github.wimdeblauwe:error-handling-spring-boot-starter | web | | Tratamento centralizado de erros
 com.tngtech.archunit:archunit-junit5 | teste | | Testes de regra de arquitetura
