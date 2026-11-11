@@ -299,4 +299,30 @@ class PomDependencyExtractorC2Test {
         }
         return n;
     }
+
+    // ------------------------------------------------------- incremento B
+
+    @Test
+    @DisplayName("o terminal de erro resume quantas dependencias nao foram identificadas, numa linha so")
+    void terminalResumeNaoIdentificadas() throws Exception {
+        pom("", """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <project xmlns="http://maven.apache.org/POM/4.0.0">
+                  <modelVersion>4.0.0</modelVersion>
+                  <groupId>com.exemplo</groupId>
+                  <artifactId>demo</artifactId>
+                  <version>1.0.0</version>
+                  <dependencies>
+                    <dependency><groupId>org.alfa</groupId><artifactId>alfa</artifactId></dependency>
+                    <dependency><groupId>org.zeta</groupId><artifactId>zeta</artifactId></dependency>
+                  </dependencies>
+                </project>
+                """);
+
+        run(raiz.resolve("pom.xml").toString(), raiz.resolve("c2.mmd").toString(), "--modo=c2");
+
+        assertTrue(erro().contains("Aviso: 2 dependencia(s) nao identificada(s)"), erro());
+        assertEquals(1, erro().lines().filter(l -> l.contains("nao identificada")).count());
+        assertFalse(erro().contains("org.alfa:alfa"));
+    }
 }

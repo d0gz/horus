@@ -385,4 +385,16 @@ class ReactorViewTest {
         assertTrue(temRelacao(m, "ui_loja_gateway", "app_loja_gateway"));
     }
 
+    @Test
+    @DisplayName("a mesma dependencia nao identificada em dois modulos vira uma entrada com os dois modulos")
+    void naoIdentificadaEmDoisModulosViraUmaEntrada() throws Exception {
+        pom("", agregador("loja", "pedidos", "estoque"));
+        pom("pedidos", servico("pedidos", "org.jolokia:jolokia-core"));
+        pom("estoque", servico("estoque", "org.jolokia:jolokia-core"));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS);
+
+        assertEquals(1, m.naoIdentificadas().size());
+        assertEquals(List.of("pedidos", "estoque"), m.naoIdentificadas().get(0).modulos());
+    }
 }

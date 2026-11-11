@@ -200,4 +200,55 @@ class C4MermaidRendererTest {
         assertTrue(m.contains("a -.->|\"Roteia requisicoes (nao confirmado)<br/>[HTTP]\"| b"), m);
     }
 
+    // ------------------------------------------------------- comentarios (incremento B)
+
+    private static String semComentarios(String mermaid) {
+        return mermaid.lines().filter(l -> !l.strip().startsWith("%%"))
+                .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    @Test
+    @DisplayName("os conteineres sao listados com id e nome, em ordem alfabetica de id")
+    void conteineresListadosEmOrdem() throws Exception {
+        String m = render("org.springframework.boot:spring-boot-starter-web",
+                "org.postgresql:postgresql:runtime");
+
+        int titulo = m.indexOf("%% ---- Conteineres deste diagrama (use estes ids no catalogo) ----");
+        int app = m.indexOf("%%   app  sist-vendas\n");
+        int db = m.indexOf("%%   db_postgresql  PostgreSQL\n");
+        int pessoa = m.indexOf("%%   pessoa  Usuario\n");
+        assertTrue(titulo >= 0 && titulo < app && app < db && db < pessoa, m);
+    }
+
+    @Test
+    @DisplayName("as dependencias nao identificadas saem em ordem alfabetica, com as linhas para incluir e para ignorar")
+    void naoIdentificadasEmOrdemComInstrucoes() throws Exception {
+        String m = render("org.zeta:zeta", "org.alfa:alfa");
+
+        int titulo = m.indexOf("%% ---- Dependencias nao identificadas (podem ser conteineres) ----");
+        int alfa = m.indexOf("%%   org.alfa:alfa (categoria nao-classificada)\n");
+        int zeta = m.indexOf("%%   org.zeta:zeta (categoria nao-classificada)\n");
+        assertTrue(titulo >= 0 && titulo < alfa && alfa < zeta, m);
+        assertTrue(m.contains("%%     para incluir: add container | ext_... | Nome | Tecnologia | Descricao\n"));
+        assertTrue(m.contains("%%     para ignorar: remove dependency | org.alfa:alfa\n"));
+    }
+
+    @Test
+    @DisplayName("secao vazia nao e escrita")
+    void secaoVaziaNaoEhEscrita() throws Exception {
+        String m = render("org.springframework.boot:spring-boot-starter-web");
+
+        assertTrue(m.contains("Conteineres deste diagrama"));
+        assertFalse(m.contains("Dependencias nao identificadas"));
+    }
+
+    @Test
+    @DisplayName("os comentarios nao alteram o desenho")
+    void comentariosNaoAlteramDesenho() throws Exception {
+        String sem = render("org.springframework.boot:spring-boot-starter-web");
+        String com = render("org.springframework.boot:spring-boot-starter-web", "org.alfa:alfa");
+
+        assertNotEquals(sem, com);
+        assertEquals(semComentarios(sem), semComentarios(com));
+    }
 }

@@ -30,7 +30,9 @@ class ArchetypeRulesTest {
                   "categoria": "web" },
                 { "groupId": "com.squareup.okhttp3", "categoria": "web" },
                 { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-validation",
-                  "categoria": "web" }
+                  "categoria": "web" },
+                { "groupId": "org.projectlombok", "artifactId": "lombok", "categoria": "utilitario" },
+                { "groupIdPrefixo": "org.springframework", "categoria": "utilitario", "generica": true }
               ]
             }
             """;
@@ -425,4 +427,40 @@ class ArchetypeRulesTest {
         assertEquals(1, m.elementos().size());
     }
 
+    // ------------------------------------------------------- nao identificadas (incremento B)
+
+    @Test
+    @DisplayName("dependencia desconhecida sem regra e registrada como nao identificada")
+    void desconhecidaEhRegistrada() throws Exception {
+        C4Model m = modelo("com.empresa:biblioteca-propria");
+
+        assertEquals(1, m.naoIdentificadas().size());
+        C4Model.DependenciaNaoIdentificada d = m.naoIdentificadas().get(0);
+        assertEquals("com.empresa:biblioteca-propria", d.coordenada());
+        assertEquals("nao-classificada", d.categoria());
+        assertTrue(d.regraGenerica() == null);
+    }
+
+    @Test
+    @DisplayName("dependencia conhecida irrelevante (lombok em compile) nao e registrada")
+    void lombokNaoEhRegistrado() throws Exception {
+        assertTrue(modelo("org.projectlombok:lombok").naoIdentificadas().isEmpty());
+    }
+
+    @Test
+    @DisplayName("dependencia de regra generica e registrada com o padrao da regra")
+    void genericaEhRegistradaComPadrao() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-cache");
+
+        C4Model.DependenciaNaoIdentificada d = m.naoIdentificadas().get(0);
+        assertEquals("utilitario", d.categoria());
+        assertEquals("org.springframework*", d.regraGenerica());
+    }
+
+    @Test
+    @DisplayName("dependencia que produz elemento nao e registrada")
+    void dependenciaComRegraNaoEhRegistrada() throws Exception {
+        assertTrue(modelo("org.postgresql:postgresql",
+                "org.springframework.boot:spring-boot-starter-data-jpa").naoIdentificadas().isEmpty());
+    }
 }

@@ -48,7 +48,7 @@ class CategoryTableTest {
                 { "groupIdPrefixo": "software.amazon.awssdk",
                   "categoria": "infraestrutura" },
                 { "groupIdPrefixo": "org.springframework",
-                  "categoria": "utilitario" }
+                  "categoria": "utilitario", "generica": true }
               ]
             }
             """;
@@ -190,5 +190,23 @@ class CategoryTableTest {
             assertNotEquals(CategoryResolver.NAO_CLASSIFICADA, t.categoriaDe(d[0], d[1]),
                     d[0] + ":" + d[1] + " deveria estar coberta pela tabela");
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Regra generica (incremento B)
+    // ---------------------------------------------------------------
+
+    @Test
+    @DisplayName("regra marcada como generica informa o seu padrao (org.springframework*)")
+    void regraGenericaInformaPadrao() {
+        assertEquals(java.util.Optional.of("org.springframework*"),
+                tabela().regraGenericaDe("org.springframework.boot", "spring-boot-starter-cache"));
+    }
+
+    @Test
+    @DisplayName("regra sem o campo generica nao e generica")
+    void regraSemCampoNaoEhGenerica() {
+        assertTrue(tabela().regraGenericaDe("software.amazon.awssdk.services", "rekognition").isEmpty());
+        assertTrue(tabela().regraGenericaDe("com.empresa.interna", "biblioteca-propria").isEmpty());
     }
 }

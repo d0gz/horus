@@ -238,4 +238,22 @@ class CatalogResolverTest {
         assertTrue(m.contains("classDef cor_dominio fill:#e0f2fe"));
         assertFalse(m.contains("grp_nao_classificada"));
     }
+
+    // ------------------------------------------------------- regra generica (incremento B)
+
+    @Test
+    @DisplayName("dependencia classificada pelo catalogo nao e de regra generica")
+    void catalogoNaoEhRegraGenerica() {
+        CategoryTable comGenerica = CategoryTable.deTexto("""
+                { "schemaVersion": 1, "padrao": "nao-classificada", "categorias": [],
+                  "regras": [ { "groupIdPrefixo": "org.springframework", "categoria": "utilitario",
+                                "generica": true } ] }
+                """);
+        CatalogResolver c = CatalogResolver.deTexto(comGenerica,
+                "org.springframework.boot:spring-boot-starter-cache | infraestrutura");
+
+        assertTrue(c.regraGenericaDe("org.springframework.boot", "spring-boot-starter-cache").isEmpty());
+        assertEquals(java.util.Optional.of("org.springframework*"),
+                c.regraGenericaDe("org.springframework.boot", "spring-boot-starter"));
+    }
 }

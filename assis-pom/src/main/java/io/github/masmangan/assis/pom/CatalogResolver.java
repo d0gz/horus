@@ -162,6 +162,13 @@ public final class CatalogResolver implements CategoryResolver {
         return (e != null) ? e.categoria() : base.categoriaDe(groupId, artifactId);
     }
 
+    /** O que o usuario classificou no catalogo nunca e palpite de familia. */
+    @Override
+    public Optional<String> regraGenericaDe(String groupId, String artifactId) {
+        return porCoordenada.containsKey(groupId + ":" + artifactId)
+                ? Optional.empty() : base.regraGenericaDe(groupId, artifactId);
+    }
+
     @Override
     public String rotuloDe(String categoria) {
         String r = rotulos.get(categoria);

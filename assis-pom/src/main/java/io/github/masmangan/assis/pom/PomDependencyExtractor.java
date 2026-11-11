@@ -204,6 +204,12 @@ public class PomDependencyExtractor {
             // As notas dizem o que a analise do pom nao alcanca. Vao tambem para
             // o terminal, porque sao o limite declarado do artefato gerado.
             c4.notas().forEach(n -> err.println("Nota: " + n));
+            // A lista fica no fim do .mmd; no terminal, uma linha so (D34).
+            if (!c4.naoIdentificadas().isEmpty()) {
+                err.println("Aviso: " + c4.naoIdentificadas().size()
+                        + " dependencia(s) nao identificada(s); veja \"Dependencias nao identificadas\""
+                        + " no fim do .mmd");
+            }
             mermaid = C4MermaidRenderer.render(c4);
         } else if (MODO_COMPLETO.equals(modo)) {
             mermaid = PomMermaidRenderer.render(PomView.de(model), tabela);

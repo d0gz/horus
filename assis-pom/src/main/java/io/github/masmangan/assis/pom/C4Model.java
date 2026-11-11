@@ -59,17 +59,30 @@ public final class C4Model {
                           String descricao, Procedencia procedencia, Evidencia evidencia) {
     }
 
+    /**
+     * Dependencia de execucao que nenhuma regra de arquetipo reconhece e que pode
+     * ser um conteiner. regraGenerica e o padrao da regra de familia que a
+     * classificou, ou null; modulos traz os modulos do reator que a declaram, na
+     * ordem do reator (vazio num projeto isolado).
+     */
+    public record DependenciaNaoIdentificada(String coordenada, String categoria,
+                                             String regraGenerica, List<String> modulos) {
+    }
+
     private final String nomeDoSistema;
     private final Map<String, Elemento> elementos;
     private final List<Relacao> relacoes;
     private final List<String> notas;
+    private final List<DependenciaNaoIdentificada> naoIdentificadas;
 
     private C4Model(String nomeDoSistema, Map<String, Elemento> elementos,
-                    List<Relacao> relacoes, List<String> notas) {
+                    List<Relacao> relacoes, List<String> notas,
+                    List<DependenciaNaoIdentificada> naoIdentificadas) {
         this.nomeDoSistema = nomeDoSistema;
         this.elementos = elementos;
         this.relacoes = relacoes;
         this.notas = notas;
+        this.naoIdentificadas = naoIdentificadas;
     }
 
     public static Builder comNome(String nomeDoSistema) {
@@ -96,6 +109,11 @@ public final class C4Model {
     /** O que a ferramenta sabe que nao consegue derivar a partir das fontes lidas. */
     public List<String> notas() {
         return List.copyOf(notas);
+    }
+
+    /** Dependencias sem regra que podem ser conteineres (incremento B), na ordem em que apareceram. */
+    public List<DependenciaNaoIdentificada> naoIdentificadas() {
+        return naoIdentificadas;
     }
 
     public Optional<Elemento> porId(String id) {
@@ -126,6 +144,8 @@ public final class C4Model {
         private final Map<String, Elemento> elementos = new LinkedHashMap<>();
         private final List<Relacao> relacoes = new ArrayList<>();
         private final List<String> notas = new ArrayList<>();
+        /** coordenada -> modulos que a declaram; a ordem e a da primeira aparicao. */
+        private final Map<String, DependenciaNaoIdentificada> naoIdentificadas = new LinkedHashMap<>();
 
         private Builder(String nomeDoSistema) {
             this.nomeDoSistema = nomeDoSistema;
@@ -163,6 +183,24 @@ public final class C4Model {
             return this;
         }
 
+        /**
+         * Registra uma dependencia sem regra. A mesma coordenada vinda de outro
+         * modulo nao cria outra entrada: acrescenta o modulo (null num projeto isolado).
+         */
+        public Builder naoIdentificada(String coordenada, String categoria,
+                                       String regraGenerica, String modulo) {
+            DependenciaNaoIdentificada atual = naoIdentificadas.get(coordenada);
+            List<String> modulos = new ArrayList<>(atual == null ? List.of() : atual.modulos());
+            if (modulo != null && !modulos.contains(modulo)) {
+                modulos.add(modulo);
+            }
+            naoIdentificadas.put(coordenada, new DependenciaNaoIdentificada(coordenada,
+                    atual == null ? categoria : atual.categoria(),
+                    atual == null ? regraGenerica : atual.regraGenerica(),
+                    List.copyOf(modulos)));
+            return this;
+        }
+
         public boolean contem(String id) {
             return elementos.containsKey(id);
         }
@@ -196,7 +234,8 @@ public final class C4Model {
 
         public C4Model construir() {
             return new C4Model(nomeDoSistema, new LinkedHashMap<>(elementos),
-                    List.copyOf(relacoes), List.copyOf(notas));
+                    List.copyOf(relacoes), List.copyOf(notas),
+                    List.copyOf(naoIdentificadas.values()));
         }
     }
 }

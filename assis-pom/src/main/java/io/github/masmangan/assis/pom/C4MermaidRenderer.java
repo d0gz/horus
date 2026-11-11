@@ -4,6 +4,8 @@ import io.github.masmangan.assis.pom.C4Model.Elemento;
 import io.github.masmangan.assis.pom.C4Model.Procedencia;
 import io.github.masmangan.assis.pom.C4Model.Relacao;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -95,6 +97,66 @@ public final class C4MermaidRenderer {
             }
         }
 
+        // Incremento B: o que o usuario precisa para escrever o catalogo. So texto;
+        // nao altera o desenho acima.
+        List<String> comentarios = comentarios(modelo);
+        if (!comentarios.isEmpty()) {
+            sb.append('\n');
+            for (String linha : comentarios) {
+                sb.append(IDENT).append("%% ").append(linha).append('\n');
+            }
+        }
+
+        return sb.toString();
+    }
+
+    // -----------------------------------------------------------------
+    // Comentarios do fim do arquivo (incremento B)
+    // -----------------------------------------------------------------
+
+    static final String TITULO_CONTEINERES = "---- Conteineres deste diagrama (use estes ids no catalogo) ----";
+    static final String TITULO_NAO_IDENTIFICADAS = "---- Dependencias nao identificadas (podem ser conteineres) ----";
+
+    /**
+     * Linhas das secoes de comentario, sem o prefixo "%% ", na ordem fixa das
+     * secoes; secao vazia nao gera linha alguma. Dentro de cada secao, ordem
+     * alfabetica, para que a saida nao dependa da ordem de derivacao.
+     */
+    public static List<String> comentarios(C4Model modelo) {
+        List<String> linhas = new ArrayList<>();
+
+        List<Elemento> elementos = modelo.elementos().stream()
+                .sorted(Comparator.comparing(Elemento::id)).toList();
+        if (!elementos.isEmpty()) {
+            linhas.add(TITULO_CONTEINERES);
+            for (Elemento e : elementos) {
+                linhas.add("  " + e.id() + "  " + e.nome());
+            }
+        }
+
+        List<C4Model.DependenciaNaoIdentificada> deps = modelo.naoIdentificadas().stream()
+                .sorted(Comparator.comparing(C4Model.DependenciaNaoIdentificada::coordenada)).toList();
+        if (!deps.isEmpty()) {
+            linhas.add(TITULO_NAO_IDENTIFICADAS);
+            for (C4Model.DependenciaNaoIdentificada d : deps) {
+                linhas.add("  " + d.coordenada() + " (" + origem(d) + ")");
+                linhas.add("    para incluir: add container | ext_... | Nome | Tecnologia | Descricao");
+                linhas.add("    para ignorar: remove dependency | " + d.coordenada());
+            }
+        }
+        return linhas;
+    }
+
+    private static String origem(C4Model.DependenciaNaoIdentificada d) {
+        StringBuilder sb = new StringBuilder();
+        if (!d.modulos().isEmpty()) {
+            sb.append(d.modulos().size() == 1 ? "modulo " : "modulos ")
+                    .append(String.join(", ", d.modulos())).append("; ");
+        }
+        sb.append("categoria ").append(d.categoria());
+        if (d.regraGenerica() != null) {
+            sb.append(" pela regra generica ").append(d.regraGenerica());
+        }
         return sb.toString();
     }
 

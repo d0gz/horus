@@ -99,6 +99,8 @@ public final class ArchetypeRules {
                 temMigracao = true;
             } else if (ehSdkDeNuvem(g) && !ehArtefatoDeNucleo(a)) {
                 regraR8SistemaExterno(b, a, ev);
+            } else if (ehSdkDeNuvem(g)) {
+                // descartada por regra conhecida: nucleo/BOM do SDK nao designa servico (R8)
             } else if (ehIdentidade(g, a)) {
                 regraR9Identidade(b, a, ev);
             } else if (ehMensageria(g, a)) {
@@ -119,8 +121,11 @@ public final class ArchetypeRules {
                 regraR14Email(b, ev);
             } else if (ehClienteHttpGenerico(g, a)) {
                 b.nota(notaDeClienteHttp(d.coordenada()));
+            } else {
+                // Sem regra: nenhum elemento, mas o que pode ser conteiner fica
+                // registrado para o comentario do c2.mmd (incremento B, D29).
+                registrarSeNaoIdentificada(b, d, categorias);
             }
-            // cache local, utilitarios e qualquer outra coisa: nenhum elemento
         }
 
         // R20: com interface, o ator chega pela interface, e nao direto na API.
@@ -193,6 +198,8 @@ public final class ArchetypeRules {
             raiz.elementos().forEach(b::elemento);
             raiz.relacoes().forEach(b::relacao);
             raiz.notas().forEach(b::nota);
+            raiz.naoIdentificadas().forEach(n ->
+                    b.naoIdentificada(n.coordenada(), n.categoria(), n.regraGenerica(), null));
             return b.construir();
         }
 
@@ -281,6 +288,11 @@ public final class ArchetypeRules {
             }
 
             parcial.notas().forEach(b::nota);
+            // D33: a mesma coordenada em varios modulos vira uma entrada com todos eles.
+            for (C4Model.DependenciaNaoIdentificada n : parcial.naoIdentificadas()) {
+                b.naoIdentificada(n.coordenada(), n.categoria(), n.regraGenerica(),
+                        modulo.projeto().artifactId());
+            }
         }
 
         if (armazenamento == Armazenamento.COMPARTILHADO) {
@@ -537,6 +549,25 @@ public final class ArchetypeRules {
                 Procedencia.DERIVADO, ev));
         b.relacao(new C4Model.Relacao(ID_INTERFACE, ID_APP, "JSON/HTTP", "Faz chamadas de API",
                 Procedencia.DERIVADO, ev));
+    }
+
+    /** Categorias em que uma dependencia sem regra provavelmente fala com outro processo. */
+    private static final List<String> CATEGORIAS_A_REVISAR =
+            List.of("infraestrutura", "observabilidade", "seguranca", "persistencia");
+
+    /**
+     * D29: registra a dependencia sem regra quando ela e desconhecida, foi
+     * classificada por regra generica ou caiu numa categoria a revisar. Uma
+     * conhecida irrelevante (lombok, utilitario por regra especifica) nao entra.
+     */
+    private static void registrarSeNaoIdentificada(C4Model.Builder b, PomView.DependenciaView d,
+                                                   CategoryResolver categorias) {
+        String categoria = categorias.categoriaDe(d.groupId(), d.artifactId());
+        String generica = categorias.regraGenericaDe(d.groupId(), d.artifactId()).orElse(null);
+        if (CategoryResolver.NAO_CLASSIFICADA.equals(categoria) || generica != null
+                || CATEGORIAS_A_REVISAR.contains(categoria)) {
+            b.naoIdentificada(d.coordenada(), categoria, generica, null);
+        }
     }
 
     private static String notaDeClienteHttp(String coordenada) {

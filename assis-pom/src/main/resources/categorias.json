@@ -462,6 +462,7 @@
     {
       "groupIdPrefixo": "org.springframework.cloud",
       "categoria": "infraestrutura",
+      "generica": true,
       "nota": "Ecossistema Spring Cloud (Gateway, Config, Eureka, etc)."
     },
     {
@@ -601,6 +602,7 @@
     {
       "groupIdPrefixo": "org.springframework",
       "categoria": "utilitario",
+      "generica": true,
       "nota": "Regra final da familia Spring. Captura artefatos do ecossistema que nao casaram com nenhuma regra especifica acima. Deve permanecer sempre por ultimo entre as regras de org.springframework."
     }
   ]
