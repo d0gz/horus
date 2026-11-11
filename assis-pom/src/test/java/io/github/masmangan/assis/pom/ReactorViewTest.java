@@ -397,4 +397,20 @@ class ReactorViewTest {
         assertEquals(1, m.naoIdentificadas().size());
         assertEquals(List.of("pedidos", "estoque"), m.naoIdentificadas().get(0).modulos());
     }
+
+    @Test
+    @DisplayName("remove dependency vale em todos os modulos do reator")
+    void removeDependencyValeEmTodosOsModulos() throws Exception {
+        pom("", agregador("loja", "pedidos", "estoque"));
+        pom("pedidos", servico("pedidos", "org.postgresql:postgresql"));
+        pom("estoque", servico("estoque", "org.postgresql:postgresql"));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS,
+                ArchetypeRules.Armazenamento.COMPARTILHADO, java.util.Map.of("org.postgresql:postgresql", 3));
+
+        assertFalse(m.temTipo(C4Model.Tipo.BANCO));
+        assertEquals(1, m.removidos().size());
+        assertEquals("dependencia org.postgresql:postgresql (linha 3)", m.removidos().get(0).texto());
+        assertTrue(m.ignoradas().isEmpty());
+    }
 }

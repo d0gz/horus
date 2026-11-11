@@ -48,7 +48,20 @@ public final class ArchetypeRules {
     }
 
     public static C4Model aplicar(PomView pom, CategoryResolver categorias) {
-        return aplicar(pom, categorias, true);
+        return aplicar(pom, categorias, Map.of());
+    }
+
+    /**
+     * Variante com as dependencias removidas pelo catalogo do usuario
+     * (groupId:artifactId -> linha do catalogo). Uma dependencia removida nao
+     * passa pelas regras; uma remocao de coordenada que o pom nao declara vira
+     * linha ignorada (incremento C, D39).
+     */
+    public static C4Model aplicar(PomView pom, CategoryResolver categorias, Map<String, Integer> removidas) {
+        C4Model m = aplicar(pom, categorias, true, removidas);
+        C4Model.Builder b = C4Model.Builder.de(m);
+        avisarRemocoesForaDoPom(b, List.of(pom), removidas);
+        return b.construir();
     }
 
     /**
@@ -56,7 +69,8 @@ public final class ArchetypeRules {
      * porta de entrada. Isolado, o projeto e o unico candidato e sempre pode; no
      * reator, so os modulos escolhidos por gatewaysDoReator (D19).
      */
-    private static C4Model aplicar(PomView pom, CategoryResolver categorias, boolean podeSerGateway) {
+    private static C4Model aplicar(PomView pom, CategoryResolver categorias, boolean podeSerGateway,
+                                   Map<String, Integer> removidas) {
         C4Model.Builder b = C4Model.comNome(pom.projeto().artifactId());
 
         regraR1Aplicacao(b, pom);
@@ -66,6 +80,13 @@ public final class ArchetypeRules {
         Evidencia evInterface = null;
 
         for (PomView.DependenciaView d : pom.dependencias()) {
+            Integer linhaDoCatalogo = removidas.get(d.coordenada());
+            if (linhaDoCatalogo != null) {
+                // remove dependency: o usuario sabe que nao e conteiner; fica o rastro.
+                b.removido(new C4Model.ItemDoCatalogo(linhaDoCatalogo,
+                        "dependencia " + d.coordenada() + " (linha " + linhaDoCatalogo + ")"));
+                continue;
+            }
             if (!ESCOPOS_EM_EXECUCAO.contains(d.escopo())) {
                 continue; // regra negativa: test e provided nao produzem conteiner
             }
@@ -177,8 +198,14 @@ public final class ArchetypeRules {
      */
     public static C4Model aplicar(ReactorView reator, CategoryResolver categorias,
                                   Armazenamento armazenamento) {
+        return aplicar(reator, categorias, armazenamento, Map.of());
+    }
+
+    /** Variante com as dependencias removidas pelo catalogo, que valem em todos os modulos. */
+    public static C4Model aplicar(ReactorView reator, CategoryResolver categorias,
+                                  Armazenamento armazenamento, Map<String, Integer> removidas) {
         if (!reator.ehAgregador()) {
-            return aplicar(reator.pom(), categorias);
+            return aplicar(reator.pom(), categorias, removidas);
         }
 
         C4Model.Builder b = C4Model.comNome(reator.pom().projeto().artifactId());
@@ -194,12 +221,14 @@ public final class ArchetypeRules {
         // Agregador sem nenhum modulo legivel: ao menos o proprio projeto entra,
         // para que o artefato nunca saia vazio.
         if (todos.size() == 1) {
-            C4Model raiz = aplicar(reator.pom(), categorias);
+            C4Model raiz = aplicar(reator.pom(), categorias, removidas);
             raiz.elementos().forEach(b::elemento);
             raiz.relacoes().forEach(b::relacao);
             raiz.notas().forEach(b::nota);
             raiz.naoIdentificadas().forEach(n ->
                     b.naoIdentificada(n.coordenada(), n.categoria(), n.regraGenerica(), null));
+            raiz.removidos().forEach(b::removido);
+            raiz.ignoradas().forEach(b::ignorada);
             return b.construir();
         }
 
@@ -211,7 +240,7 @@ public final class ArchetypeRules {
         }
 
         // id do modulo gateway -> coordenada do starter que o faz gateway (D19).
-        Map<String, String> gateways = gatewaysDoReator(todos);
+        Map<String, String> gateways = gatewaysDoReator(todos, removidas);
 
         // Quantos modulos declaram cada armazenamento, para anotar o no unido.
         Map<String, Integer> declarantes = new LinkedHashMap<>();
@@ -219,7 +248,7 @@ public final class ArchetypeRules {
         for (int i = 1; i < todos.size(); i++) {
             PomView modulo = todos.get(i).pom();
             String idDoModulo = "app_" + sanitizar(modulo.projeto().artifactId());
-            C4Model parcial = aplicar(modulo, categorias, gateways.containsKey(idDoModulo));
+            C4Model parcial = aplicar(modulo, categorias, gateways.containsKey(idDoModulo), removidas);
 
             // Identificadores validos apenas no modelo isolado, reapontados para
             // os do reator antes de copiar as relacoes.
@@ -293,7 +322,11 @@ public final class ArchetypeRules {
                 b.naoIdentificada(n.coordenada(), n.categoria(), n.regraGenerica(),
                         modulo.projeto().artifactId());
             }
+            // A mesma remocao em varios modulos e um registro so (o Builder nao repete).
+            parcial.removidos().forEach(b::removido);
         }
+
+        avisarRemocoesForaDoPom(b, todos.stream().map(ReactorView::pom).toList(), removidas);
 
         if (armazenamento == Armazenamento.COMPARTILHADO) {
             declarantes.forEach((id, n) -> {
@@ -324,12 +357,26 @@ public final class ArchetypeRules {
      * starter. Um servico que usa o gateway como biblioteca (o genai do PetClinic)
      * nao vira porta de entrada so por isso.
      */
-    private static Map<String, String> gatewaysDoReator(List<ReactorView> todos) {
+    /** remove dependency de coordenada que nenhum pom lido declara: aviso, nada muda (D39). */
+    private static void avisarRemocoesForaDoPom(C4Model.Builder b, List<PomView> poms,
+                                                Map<String, Integer> removidas) {
+        removidas.forEach((coordenada, linha) -> {
+            boolean declarada = poms.stream().anyMatch(p -> p.dependencias().stream()
+                    .anyMatch(d -> d.coordenada().equals(coordenada)));
+            if (!declarada) {
+                b.ignorada(new C4Model.ItemDoCatalogo(linha,
+                        "dependencia '" + coordenada + "' nao esta no pom"));
+            }
+        });
+    }
+
+    private static Map<String, String> gatewaysDoReator(List<ReactorView> todos, Map<String, Integer> removidas) {
         Map<String, String> candidatos = new LinkedHashMap<>();
         for (int i = 1; i < todos.size(); i++) {
             PomView m = todos.get(i).pom();
             for (PomView.DependenciaView d : m.dependencias()) {
-                if (ESCOPOS_EM_EXECUCAO.contains(d.escopo()) && ehGateway(d.groupId(), d.artifactId())) {
+                if (ESCOPOS_EM_EXECUCAO.contains(d.escopo()) && ehGateway(d.groupId(), d.artifactId())
+                        && !removidas.containsKey(d.coordenada())) {
                     candidatos.putIfAbsent(m.projeto().artifactId(), d.coordenada());
                 }
             }

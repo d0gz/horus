@@ -39,6 +39,10 @@ class ArchetypeRulesTest {
 
     /** Monta um pom com as dependencias informadas no formato grupo:artefato:escopo. */
     private C4Model modelo(String... deps) throws Exception {
+        return modelo(java.util.Map.of(), deps);
+    }
+
+    private C4Model modelo(java.util.Map<String, Integer> removidas, String... deps) throws Exception {
         StringBuilder sb = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -67,7 +71,7 @@ class ArchetypeRulesTest {
         sb.append("  </dependencies>\n</project>\n");
 
         PomView pom = PomView.de(PomDependencyExtractor.readPom(new StringReader(sb.toString())));
-        return ArchetypeRules.aplicar(pom, CategoryTable.deTexto(TABELA));
+        return ArchetypeRules.aplicar(pom, CategoryTable.deTexto(TABELA), removidas);
     }
 
     private List<String> nomes(C4Model m, Tipo tipo) {
@@ -462,5 +466,29 @@ class ArchetypeRulesTest {
     void dependenciaComRegraNaoEhRegistrada() throws Exception {
         assertTrue(modelo("org.postgresql:postgresql",
                 "org.springframework.boot:spring-boot-starter-data-jpa").naoIdentificadas().isEmpty());
+    }
+
+    // ------------------------------------------------------- remove dependency (incremento C)
+
+    @Test
+    @DisplayName("remove dependency: a dependencia nao entra nas regras nem nas nao identificadas, e fica nos removidos")
+    void removeDependencyTiraDasRegras() throws Exception {
+        C4Model m = modelo(java.util.Map.of("org.postgresql:postgresql", 3, "com.empresa:lib", 4),
+                "org.postgresql:postgresql", "com.empresa:lib");
+
+        assertFalse(m.temTipo(Tipo.BANCO));
+        assertTrue(m.naoIdentificadas().isEmpty());
+        assertEquals(List.of("dependencia org.postgresql:postgresql (linha 3)", "dependencia com.empresa:lib (linha 4)"),
+                m.removidos().stream().map(C4Model.ItemDoCatalogo::texto).toList());
+    }
+
+    @Test
+    @DisplayName("remove dependency de coordenada que nao esta no pom vira aviso")
+    void removeDependencyForaDoPomViraAviso() throws Exception {
+        C4Model m = modelo(java.util.Map.of("org.jolokia:jolokia-core", 2), "org.postgresql:postgresql");
+
+        assertTrue(m.temTipo(Tipo.BANCO));
+        assertTrue(m.ignoradas().stream().anyMatch(i -> i.linha() == 2
+                && i.texto().contains("'org.jolokia:jolokia-core' nao esta no pom")), m.ignoradas().toString());
     }
 }

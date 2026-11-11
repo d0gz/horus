@@ -13,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.function.Function;
 
@@ -171,6 +173,7 @@ public class PomDependencyExtractor {
         }
 
         CategoryResolver tabela = null;
+        CatalogoC2 catalogoC2 = CatalogoC2.vazio();
         if (MODO_COMPLETO.equals(modo) || MODO_C2.equals(modo)) {
             CategoryTable json = CategoryTable.padrao();
             if (!json.carregou()) {
@@ -183,7 +186,16 @@ public class PomDependencyExtractor {
             // O catalogo do usuario e lido a cada execucao e nunca gravado no
             // categorias.json, que permanece a unica fonte versionada.
             if (catalogo != null) {
-                CatalogResolver usuario = CatalogResolver.de(json, Path.of(catalogo));
+                // Lido uma vez: o mesmo texto vai para o classificador e para o
+                // catalogo do C2, e assim os numeros de linha coincidem (D36).
+                CatalogResolver usuario;
+                try {
+                    String texto = Files.readString(Path.of(catalogo), StandardCharsets.UTF_8);
+                    usuario = CatalogResolver.deTexto(json, texto);
+                    catalogoC2 = CatalogoC2.deTexto(texto);
+                } catch (IOException e) {
+                    usuario = CatalogResolver.de(json, Path.of(catalogo)); // registra o aviso de leitura
+                }
                 usuario.avisos().forEach(a -> err.println("Catalogo: " + a));
                 err.println("Catalogo: " + usuario.tamanho() + " entrada(s) aplicada(s).");
                 tabela = usuario;
@@ -200,7 +212,8 @@ public class PomDependencyExtractor {
         } else if (MODO_C2.equals(modo)) {
             // A sobrecarga de ArchetypeRules decide sozinha entre projeto simples
             // e multimodulo, por isso o modo c2 recebe sempre o reator.
-            C4Model c4 = ArchetypeRules.aplicar(reator, tabela, armazenamento);
+            C4Model c4 = catalogoC2.aplicar(ArchetypeRules.aplicar(reator, tabela, armazenamento,
+                    catalogoC2.dependenciasRemovidas()));
             // As notas dizem o que a analise do pom nao alcanca. Vao tambem para
             // o terminal, porque sao o limite declarado do artefato gerado.
             c4.notas().forEach(n -> err.println("Nota: " + n));
@@ -210,9 +223,22 @@ public class PomDependencyExtractor {
                         + " dependencia(s) nao identificada(s); veja \"Dependencias nao identificadas\""
                         + " no fim do .mmd");
             }
+            // Linhas do catalogo ignoradas: uma por linha, foram escritas pelo usuario (D48).
+            C4MermaidRenderer.porLinha(c4.ignoradas()).forEach(i ->
+                    err.println("Catalogo: linha " + i.linha() + ": " + i.texto()));
+            if (!c4.removidos().isEmpty()) {
+                err.println("Catalogo: " + c4.removidos().size() + " remocao(oes) aplicada(s); veja"
+                        + " \"Removidos pelo catalogo\" no fim do .mmd");
+            }
             mermaid = C4MermaidRenderer.render(c4);
         } else if (MODO_COMPLETO.equals(modo)) {
-            mermaid = PomMermaidRenderer.render(PomView.de(model), tabela);
+            PomView raiz = PomView.de(model);
+            mermaid = PomMermaidRenderer.render(raiz, tabela,
+                    removidasDe(raiz, catalogoC2.dependenciasRemovidas()));
+            // D50: linhas de conteiner e relacao nao valem aqui; os problemas de leitura sim.
+            catalogoC2.avisos().forEach(i ->
+                    err.println("Catalogo: linha " + i.linha() + ": " + i.texto()));
+            avisarRemocoesForaDoPom(reator, catalogoC2.dependenciasRemovidas(), err);
         } else {
             mermaid = toMermaid(model);
         }
@@ -252,13 +278,16 @@ public class PomDependencyExtractor {
             // tabela e atribuida em ramos condicionais, entao nao e efetivamente
             // final e precisa de uma copia para ser usada na lambda.
             final CategoryResolver resolvedor = tabela;
+            // D49: nos arquivos por modulo so vale o remove dependency, com as
+            // remocoes que aquele modulo declara.
+            final Map<String, Integer> removidas = catalogoC2.dependenciasRemovidas();
             Function<PomView, String> renderizador = null;
 
             if (MODO_COMPLETO.equals(modo)) {
-                renderizador = m -> PomMermaidRenderer.render(m, resolvedor);
+                renderizador = m -> PomMermaidRenderer.render(m, resolvedor, removidasDe(m, removidas));
             } else if (MODO_C2.equals(modo)) {
                 renderizador = m -> C4MermaidRenderer.render(
-                        ArchetypeRules.aplicar(m, resolvedor));
+                        ArchetypeRules.aplicar(m, resolvedor, removidasDe(m, removidas)));
             }
 
             if (renderizador != null) {
@@ -268,6 +297,33 @@ public class PomDependencyExtractor {
         }
 
         return OK;
+    }
+
+    /** As remocoes do catalogo que este pom declara, para nao avisar no arquivo de um modulo o que e de outro. */
+    static Map<String, Integer> removidasDe(PomView pom, Map<String, Integer> removidas) {
+        Map<String, Integer> doPom = new LinkedHashMap<>();
+        pom.dependencias().forEach(d -> {
+            Integer linha = removidas.get(d.coordenada());
+            if (linha != null) {
+                doPom.put(d.coordenada(), linha);
+            }
+        });
+        return doPom;
+    }
+
+    /** No modo completo: remove dependency de coordenada que nenhum pom do reator declara. */
+    private static void avisarRemocoesForaDoPom(ReactorView reator, Map<String, Integer> removidas,
+                                                PrintStream err) {
+        if (reator == null) {
+            return;
+        }
+        removidas.forEach((coordenada, linha) -> {
+            boolean declarada = reator.achatado().stream().anyMatch(r -> r.pom().dependencias().stream()
+                    .anyMatch(d -> d.coordenada().equals(coordenada)));
+            if (!declarada) {
+                err.println("Catalogo: linha " + linha + ": dependencia '" + coordenada + "' nao esta no pom");
+            }
+        });
     }
 
     /**

@@ -98,6 +98,17 @@ public final class CatalogResolver implements CategoryResolver {
             }
 
             String[] campos = linha.split("\\|", -1);
+
+            // Incremento C: "describe dependency | g:a | ..." e a forma nova da linha de
+            // classificacao. As linhas que comecam por add/remove sao do CatalogoC2,
+            // que avisa sobre elas; cada linha tem um so dono, e o aviso nao se repete.
+            String primeiro = campos[0].trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+            if (primeiro.equals("describe dependency")) {
+                campos = java.util.Arrays.copyOfRange(campos, 1, campos.length);
+            } else if (primeiro.startsWith("add ") || primeiro.startsWith("remove ")) {
+                continue;
+            }
+
             if (campos.length < 2) {
                 avisos.add("Linha " + numero + " ignorada: faltam campos separados por | ");
                 continue;

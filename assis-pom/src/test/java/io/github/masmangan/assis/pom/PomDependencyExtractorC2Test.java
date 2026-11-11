@@ -325,4 +325,22 @@ class PomDependencyExtractorC2Test {
         assertEquals(1, erro().lines().filter(l -> l.contains("nao identificada")).count());
         assertFalse(erro().contains("org.alfa:alfa"));
     }
+
+    @Test
+    @DisplayName("linhas do catalogo ignoradas vao para o terminal de erro, uma por linha")
+    void linhasIgnoradasVaoParaOTerminal() throws Exception {
+        pom("", POM_FDS);
+        Path catalogo = raiz.resolve("catalogo.txt");
+        Files.writeString(catalogo, """
+                add relationship | pessoa | ext_nada | HTTP | Usa
+                remove container | ext_nada
+                """, StandardCharsets.UTF_8);
+
+        run(raiz.resolve("pom.xml").toString(), raiz.resolve("c2.mmd").toString(), "--modo=c2",
+                "--catalogo=" + catalogo);
+
+        assertEquals(1, erro().lines().filter(l -> l.startsWith("Catalogo: linha 1: ")).count(), erro());
+        assertEquals(1, erro().lines().filter(l -> l.startsWith("Catalogo: linha 2: ")).count(), erro());
+        assertTrue(terminal().contains("%%   linha 1: conteiner 'ext_nada' nao existe"));
+    }
 }

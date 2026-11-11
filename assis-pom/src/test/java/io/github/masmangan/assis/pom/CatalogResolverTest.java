@@ -256,4 +256,32 @@ class CatalogResolverTest {
         assertEquals(java.util.Optional.of("org.springframework*"),
                 c.regraGenericaDe("org.springframework.boot", "spring-boot-starter"));
     }
+
+    // ------------------------------------------------------- catalogo do C2 (incremento C)
+
+    @Test
+    @DisplayName("describe dependency classifica como a linha antiga")
+    void describeDependencyClassificaComoLinhaAntiga() {
+        CatalogResolver c = catalogo(
+                "describe dependency | com.exemplo:lib | teste | #abcdef | Biblioteca interna");
+
+        assertEquals("teste", c.categoriaDe("com.exemplo", "lib"));
+        assertEquals(java.util.Optional.of("Biblioteca interna"), c.descricaoDe("com.exemplo", "lib"));
+        assertTrue(c.avisos().isEmpty());
+    }
+
+    @Test
+    @DisplayName("linhas de conteiner e relacao nao geram aviso no classificador")
+    void linhasDoC2NaoGeramAvisoNoClassificador() {
+        CatalogResolver c = catalogo("""
+                remove dependency   | org.jolokia:jolokia-core
+                add container       | ext_x | X | HTTP | Algo
+                add relationship    | app | ext_x | HTTP | Usa
+                remove container    | ext_y
+                remove relationship | pessoa | app
+                """);
+
+        assertTrue(c.avisos().isEmpty(), c.avisos().toString());
+        assertEquals(0, c.tamanho());
+    }
 }

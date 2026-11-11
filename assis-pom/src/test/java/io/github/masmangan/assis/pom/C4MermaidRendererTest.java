@@ -254,4 +254,71 @@ class C4MermaidRendererTest {
         assertNotEquals(sem, com);
         assertEquals(semComentarios(sem), semComentarios(com));
     }
+
+    // ------------------------------------------------------- catalogo (incremento C)
+
+    private static final C4Model.Evidencia EV_POM = new C4Model.Evidencia(C4Model.Fonte.POM, "g:a");
+    private static final C4Model.Evidencia EV_CAT = new C4Model.Evidencia(C4Model.Fonte.CATALOGO, "linha 1");
+
+    private static C4Model.Elemento elemento(C4Model.Tipo tipo, String id, C4Model.Procedencia p) {
+        return new C4Model.Elemento(tipo, id, id.toUpperCase(), null, null, p,
+                p == C4Model.Procedencia.DECLARADO ? EV_CAT : EV_POM);
+    }
+
+    @Test
+    @DisplayName("relacao declarada recebe marcador textual")
+    void relacaoDeclaradaTemMarcador() {
+        C4Model modelo = C4Model.comNome("s")
+                .elemento(elemento(C4Model.Tipo.APLICACAO, "a", C4Model.Procedencia.DERIVADO))
+                .elemento(elemento(C4Model.Tipo.APLICACAO, "b", C4Model.Procedencia.DERIVADO))
+                .relacao(new C4Model.Relacao("a", "b", "HTTP", "Chama", C4Model.Procedencia.DECLARADO, EV_CAT))
+                .construir();
+
+        assertTrue(C4MermaidRenderer.render(modelo).contains("a -->|\"Chama (declarado)<br/>[HTTP]\"| b"));
+    }
+
+    @Test
+    @DisplayName("conteineres e relacoes do catalogo saem depois dos derivados, sob comentario proprio")
+    void declaradosDepoisDosDerivados() {
+        C4Model modelo = C4Model.comNome("s")
+                .elemento(elemento(C4Model.Tipo.SISTEMA_EXTERNO, "ext_declarado", C4Model.Procedencia.DECLARADO))
+                .elemento(elemento(C4Model.Tipo.SISTEMA_EXTERNO, "ext_derivado", C4Model.Procedencia.DERIVADO))
+                .elemento(elemento(C4Model.Tipo.APLICACAO, "app", C4Model.Procedencia.DERIVADO))
+                .relacao(new C4Model.Relacao("app", "ext_declarado", "HTTP", "Usa", C4Model.Procedencia.DECLARADO, EV_CAT))
+                .relacao(new C4Model.Relacao("app", "ext_derivado", "HTTP", "Usa", C4Model.Procedencia.DERIVADO, EV_POM))
+                .construir();
+
+        String m = C4MermaidRenderer.render(modelo);
+
+        int derivado = m.indexOf("ext_derivado[");
+        int comentario = m.indexOf("%% Conteineres abaixo vem do catalogo");
+        int declarado = m.indexOf("ext_declarado[");
+        assertTrue(derivado >= 0 && derivado < comentario && comentario < declarado, m);
+
+        int relDerivada = m.indexOf("app -->|\"Usa<br/>[HTTP]\"| ext_derivado");
+        int comentarioRel = m.indexOf("%% Relacoes abaixo vem do catalogo");
+        int relDeclarada = m.indexOf("| ext_declarado\n");
+        assertTrue(relDerivada >= 0 && relDerivada < comentarioRel && comentarioRel < relDeclarada, m);
+    }
+
+    @Test
+    @DisplayName("removidos e linhas ignoradas saem nas secoes 3 e 4")
+    void removidosEIgnoradasNasSecoes3e4() {
+        C4Model base = C4Model.comNome("s")
+                .elemento(elemento(C4Model.Tipo.APLICACAO, "app", C4Model.Procedencia.DERIVADO))
+                .elemento(elemento(C4Model.Tipo.SISTEMA_EXTERNO, "ext_x", C4Model.Procedencia.DERIVADO))
+                .construir();
+        C4Model modelo = CatalogoC2.deTexto("""
+                remove container | ext_x
+                remove container | ext_nada
+                """).aplicar(base);
+
+        String m = C4MermaidRenderer.render(modelo);
+
+        int s3 = m.indexOf("%% ---- Removidos pelo catalogo ----");
+        int removido = m.indexOf("%%   conteiner ext_x (linha 1) e suas 0 relacoes");
+        int s4 = m.indexOf("%% ---- Linhas do catalogo ignoradas ----");
+        int ignorada = m.indexOf("%%   linha 2: conteiner 'ext_nada' nao existe");
+        assertTrue(s3 >= 0 && s3 < removido && removido < s4 && s4 < ignorada, m);
+    }
 }
