@@ -27,6 +27,9 @@ class ArchetypeRulesTest {
               ],
               "regras": [
                 { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-web",
+                  "categoria": "web" },
+                { "groupId": "com.squareup.okhttp3", "categoria": "web" },
+                { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-validation",
                   "categoria": "web" }
               ]
             }
@@ -352,6 +355,74 @@ class ArchetypeRulesTest {
         assertEquals(List.of("PostgreSQL"), nomes(m, Tipo.BANCO));
         assertEquals(List.of("Rekognition"), nomes(m, Tipo.SISTEMA_EXTERNO));
         assertEquals(4, m.elementos().size());
+    }
+
+    // ------------------------------------------------------- R19 gateway
+
+    @Test
+    @DisplayName("R19: starter do gateway produz o ator e a nota de rotas nao declaradas")
+    void gatewayProduzAtorENota() throws Exception {
+        C4Model m = modelo("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux");
+
+        assertTrue(temRelacao(m, "pessoa", "app", "HTTPS"));
+        assertTrue(m.notas().stream().anyMatch(n -> n.contains("gateway")
+                && n.contains("rotas nao sao declaradas no pom")));
+    }
+
+    // ------------------------------------------------------- R20 interface web
+
+    @Test
+    @DisplayName("R20: webjar angularjs produz a interface web dentro da fronteira")
+    void webjarAngularjsProduzInterface() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:angularjs");
+
+        C4Model.Elemento ui = m.porId("ui").orElseThrow();
+        assertEquals(Tipo.INTERFACE, ui.tipo());
+        assertEquals("AngularJS", ui.tecnologia());
+        assertFalse(ui.foraDaFronteira());
+    }
+
+    @Test
+    @DisplayName("R20: com interface, o ator usa a interface e a interface chama a aplicacao")
+    void atorUsaInterfaceQueChamaAplicacao() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:angularjs");
+
+        assertTrue(temRelacao(m, "pessoa", "ui", "HTTPS"));
+        assertTrue(temRelacao(m, "ui", "app", "JSON/HTTP"));
+        assertFalse(m.relacoes().stream().anyMatch(r ->
+                r.origem().equals("pessoa") && r.destino().equals("app")));
+    }
+
+    @Test
+    @DisplayName("R20: webjar de apoio (bootstrap) nao produz interface")
+    void webjarDeApoioNaoProduzInterface() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:bootstrap");
+
+        assertFalse(m.temTipo(Tipo.INTERFACE));
+    }
+
+    // ------------------------------------------------------- R2 mais estreito
+
+    @Test
+    @DisplayName("R2: cliente HTTP da categoria web (okhttp3) nao cria o ator e vira nota")
+    void okhttpNaoCriaAtor() throws Exception {
+        C4Model m = modelo("com.squareup.okhttp3:okhttp");
+
+        assertFalse(m.temTipo(Tipo.PESSOA));
+        assertTrue(m.notas().stream().anyMatch(n -> n.contains("com.squareup.okhttp3:okhttp")
+                && n.contains("nao sao declarados no Maven")));
+    }
+
+    @Test
+    @DisplayName("R2: validacao da categoria web nao cria o ator")
+    void validacaoNaoCriaAtor() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-validation");
+
+        assertFalse(m.temTipo(Tipo.PESSOA));
+        assertEquals(1, m.elementos().size());
     }
 
 }

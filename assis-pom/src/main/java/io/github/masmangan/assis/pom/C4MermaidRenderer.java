@@ -61,7 +61,9 @@ public final class C4MermaidRenderer {
         if (!modelo.relacoes().isEmpty()) {
             sb.append('\n');
             for (Relacao r : modelo.relacoes()) {
-                sb.append(IDENT).append(r.origem()).append(" -->|\"")
+                // Relacao nao confirmada: seta tracejada e marcador no texto (D13).
+                String seta = r.procedencia() == Procedencia.NAO_CONFIRMAVEL ? " -.->|\"" : " -->|\"";
+                sb.append(IDENT).append(r.origem()).append(seta)
                         .append(rotuloDeRelacao(r)).append("\"| ")
                         .append(r.destino()).append('\n');
             }
@@ -70,6 +72,10 @@ public final class C4MermaidRenderer {
         sb.append('\n');
         sb.append(IDENT).append("classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff\n");
         sb.append(IDENT).append("classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
+        // So quando ha interface, para nao alterar os diagramas que nao tem uma.
+        if (modelo.temTipo(C4Model.Tipo.INTERFACE)) {
+            sb.append(IDENT).append("classDef interface fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
+        }
         sb.append(IDENT).append("classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
         sb.append(IDENT).append("classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
         sb.append(IDENT).append("classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff\n");
@@ -103,6 +109,7 @@ public final class C4MermaidRenderer {
             case PESSOA -> e.id() + "([\"" + rotulo + "\"])";
             case BANCO -> e.id() + "[(\"" + rotulo + "\")]";
             case MENSAGERIA -> e.id() + "{{\"" + rotulo + "\"}}";
+            case INTERFACE -> e.id() + "(\"" + rotulo + "\")";
             case APLICACAO, SISTEMA_EXTERNO -> e.id() + "[\"" + rotulo + "\"]";
         };
     }
@@ -134,6 +141,9 @@ public final class C4MermaidRenderer {
         if (r.descricao() != null && !r.descricao().isBlank()) {
             sb.append(esc(r.descricao()));
         }
+        if (r.procedencia() == Procedencia.NAO_CONFIRMAVEL) {
+            sb.append(sb.length() > 0 ? MARCA_NAO_CONFIRMAVEL : MARCA_NAO_CONFIRMAVEL.trim());
+        }
         if (r.tecnologia() != null && !r.tecnologia().isBlank()) {
             if (sb.length() > 0) {
                 sb.append("<br/>");
@@ -150,6 +160,7 @@ public final class C4MermaidRenderer {
         return switch (e.tipo()) {
             case PESSOA -> "pessoa";
             case APLICACAO -> "aplicacao";
+            case INTERFACE -> "interface";
             case BANCO -> "banco";
             case MENSAGERIA -> "mensageria";
             case SISTEMA_EXTERNO -> "externo";

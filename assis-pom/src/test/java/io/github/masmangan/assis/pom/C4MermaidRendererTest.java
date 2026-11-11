@@ -170,4 +170,34 @@ class C4MermaidRendererTest {
 
     // ------------------------------------------------------- casos de referencia
 
+    // ------------------------------------------------------- incremento A
+
+    @Test
+    @DisplayName("a interface web tem forma propria, diferente da aplicacao")
+    void interfaceTemFormaPropria() throws Exception {
+        String m = render("org.springframework.boot:spring-boot-starter-web", "org.webjars:angularjs");
+
+        assertTrue(m.contains("ui(\""), "interface em retangulo arredondado");
+        assertTrue(m.contains("app[\""), "aplicacao continua em retangulo");
+        assertTrue(m.contains("class ui interface"));
+    }
+
+    @Test
+    @DisplayName("relacao nao confirmada e tracejada e tem marcador textual")
+    void relacaoNaoConfirmadaTracejadaComMarcador() {
+        C4Model.Evidencia ev = new C4Model.Evidencia(C4Model.Fonte.POM, "g:a");
+        C4Model modelo = C4Model.comNome("sistema")
+                .elemento(new C4Model.Elemento(C4Model.Tipo.APLICACAO, "a", "A", null, null,
+                        C4Model.Procedencia.DERIVADO, ev))
+                .elemento(new C4Model.Elemento(C4Model.Tipo.APLICACAO, "b", "B", null, null,
+                        C4Model.Procedencia.DERIVADO, ev))
+                .relacao(new C4Model.Relacao("a", "b", "HTTP", "Roteia requisicoes",
+                        C4Model.Procedencia.NAO_CONFIRMAVEL, ev))
+                .construir();
+
+        String m = C4MermaidRenderer.render(modelo);
+
+        assertTrue(m.contains("a -.->|\"Roteia requisicoes (nao confirmado)<br/>[HTTP]\"| b"), m);
+    }
+
 }

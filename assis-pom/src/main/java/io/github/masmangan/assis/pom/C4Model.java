@@ -22,7 +22,9 @@ import java.util.Optional;
 public final class C4Model {
 
     public enum Tipo {
-        PESSOA, APLICACAO, BANCO, MENSAGERIA, SISTEMA_EXTERNO
+        PESSOA, APLICACAO, BANCO, MENSAGERIA, SISTEMA_EXTERNO,
+        /** Interface servida ao navegador (SPA), conteiner dentro da fronteira. */
+        INTERFACE
     }
 
     public enum Fonte {
@@ -136,6 +138,21 @@ public final class C4Model {
 
         public Builder relacao(Relacao r) {
             relacoes.add(r);
+            return this;
+        }
+
+        /**
+         * Troca o destino das relacoes origem -> destinoAntigo, mantendo a posicao
+         * de cada uma na lista para que a ordem de saida continue a mesma.
+         */
+        Builder redirecionar(String origem, String destinoAntigo, String destinoNovo) {
+            for (int i = 0; i < relacoes.size(); i++) {
+                Relacao r = relacoes.get(i);
+                if (r.origem().equals(origem) && r.destino().equals(destinoAntigo)) {
+                    relacoes.set(i, new Relacao(r.origem(), destinoNovo, r.tecnologia(),
+                            r.descricao(), r.procedencia(), r.evidencia()));
+                }
+            }
             return this;
         }
 

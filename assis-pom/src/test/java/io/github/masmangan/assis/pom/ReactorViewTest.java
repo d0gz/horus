@@ -308,4 +308,81 @@ class ReactorViewTest {
         assertTrue(m.notas().stream().anyMatch(n -> n.contains("fantasma")));
     }
 
+    // ---------------------------------------------------------------
+    // C2 do reator: gateway e interface (incremento A)
+    // ---------------------------------------------------------------
+
+    private static final String GATEWAY =
+            "org.springframework.cloud:spring-cloud-starter-gateway-server-webflux";
+    private static final String WEB = "org.springframework.boot:spring-boot-starter-web";
+
+    private static boolean temRelacao(C4Model m, String origem, String destino) {
+        return m.relacoes().stream().anyMatch(r ->
+                r.origem().equals(origem) && r.destino().equals(destino));
+    }
+
+    @Test
+    @DisplayName("C2 do reator: o gateway roteia para os modulos web no lugar do ator, sem confirmacao")
+    void gatewayRoteiaNoLugarDoAtor() throws Exception {
+        pom("", agregador("loja", "loja-gateway", "pedidos"));
+        pom("loja-gateway", servico("loja-gateway", GATEWAY));
+        pom("pedidos", servico("pedidos", WEB));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS);
+
+        C4Model.Relacao rota = m.relacoes().stream().filter(r ->
+                r.origem().equals("app_loja_gateway") && r.destino().equals("app_pedidos"))
+                .findFirst().orElseThrow();
+        assertEquals(C4Model.Procedencia.NAO_CONFIRMAVEL, rota.procedencia());
+        assertEquals("HTTP", rota.tecnologia());
+        assertTrue(temRelacao(m, "pessoa", "app_loja_gateway"));
+        assertFalse(temRelacao(m, "pessoa", "app_pedidos"));
+    }
+
+    @Test
+    @DisplayName("C2 do reator: modulo que declara o starter do gateway sem gateway no nome nao e porta de entrada")
+    void starterDoGatewaySemNomeNaoEhPortaDeEntrada() throws Exception {
+        pom("", agregador("loja", "loja-gateway", "assistente"));
+        pom("loja-gateway", servico("loja-gateway", GATEWAY));
+        pom("assistente", servico("assistente", WEB, GATEWAY));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS);
+
+        assertTrue(temRelacao(m, "app_loja_gateway", "app_assistente"));
+        assertFalse(temRelacao(m, "app_assistente", "app_loja_gateway"));
+        assertFalse(temRelacao(m, "pessoa", "app_assistente"));
+        assertTrue(m.notas().stream().anyMatch(n -> n.contains(GATEWAY)
+                && n.contains("nao sao declarados no Maven")));
+    }
+
+    @Test
+    @DisplayName("C2 do reator: sem modulo com gateway no nome, todo modulo que declara o starter e gateway")
+    void semNomeTodoStarterEhGateway() throws Exception {
+        pom("", agregador("loja", "borda", "pedidos"));
+        pom("borda", servico("borda", GATEWAY));
+        pom("pedidos", servico("pedidos", WEB));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS);
+
+        assertTrue(temRelacao(m, "app_borda", "app_pedidos"));
+        assertTrue(temRelacao(m, "pessoa", "app_borda"));
+        assertFalse(temRelacao(m, "pessoa", "app_pedidos"));
+    }
+
+    @Test
+    @DisplayName("C2 do reator: a interface recebe o id do modulo que a serve")
+    void interfaceRecebeIdDoModulo() throws Exception {
+        pom("", agregador("loja", "loja-gateway", "pedidos"));
+        pom("loja-gateway", servico("loja-gateway", GATEWAY, "org.webjars:angularjs"));
+        pom("pedidos", servico("pedidos", WEB));
+
+        C4Model m = ArchetypeRules.aplicar(reator(), SEM_CATEGORIAS);
+
+        assertEquals(C4Model.Tipo.INTERFACE,
+                m.porId("ui_loja_gateway").orElseThrow().tipo());
+        assertTrue(m.porId("ui").isEmpty());
+        assertTrue(temRelacao(m, "pessoa", "ui_loja_gateway"));
+        assertTrue(temRelacao(m, "ui_loja_gateway", "app_loja_gateway"));
+    }
+
 }

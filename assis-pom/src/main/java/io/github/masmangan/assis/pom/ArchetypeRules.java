@@ -30,6 +30,8 @@ public final class ArchetypeRules {
 
     static final String ID_APP = "app";
     static final String ID_PESSOA = "pessoa";
+    static final String ID_INTERFACE = "ui";
+    static final String ID_ZIPKIN = "ext_zipkin";
 
     /** Como representar armazenamentos declarados em mais de um modulo do reator. */
     public enum Armazenamento {
@@ -46,12 +48,22 @@ public final class ArchetypeRules {
     }
 
     public static C4Model aplicar(PomView pom, CategoryResolver categorias) {
+        return aplicar(pom, categorias, true);
+    }
+
+    /**
+     * podeSerGateway diz se o starter do Spring Cloud Gateway faz deste projeto a
+     * porta de entrada. Isolado, o projeto e o unico candidato e sempre pode; no
+     * reator, so os modulos escolhidos por gatewaysDoReator (D19).
+     */
+    private static C4Model aplicar(PomView pom, CategoryResolver categorias, boolean podeSerGateway) {
         C4Model.Builder b = C4Model.comNome(pom.projeto().artifactId());
 
         regraR1Aplicacao(b, pom);
 
         boolean precisaBanco = false;
         boolean temMigracao = false;
+        Evidencia evInterface = null;
 
         for (PomView.DependenciaView d : pom.dependencias()) {
             if (!ESCOPOS_EM_EXECUCAO.contains(d.escopo())) {
@@ -62,7 +74,18 @@ public final class ArchetypeRules {
             String a = d.artifactId();
             Evidencia ev = new Evidencia(Fonte.POM, d.coordenada());
 
-            if (ehWeb(g, a, categorias.categoriaDe(g, a))) {
+            if (ehInterfaceWeb(g, a)) {
+                if (evInterface == null) {
+                    evInterface = ev;
+                }
+                regraR20Interface(b, pom, a, ev);
+            } else if (ehGateway(g, a)) {
+                if (podeSerGateway) {
+                    regraR19Gateway(b, d.coordenada(), ev);
+                } else {
+                    b.nota(notaDeClienteHttp(d.coordenada()));
+                }
+            } else if (ehWeb(g, a, categorias.categoriaDe(g, a))) {
                 regraR2Ator(b, ev);
             } else if (ehDriverJdbc(g, a)) {
                 regraR3Banco(b, a, ev);
@@ -80,6 +103,12 @@ public final class ArchetypeRules {
                 regraR9Identidade(b, a, ev);
             } else if (ehMensageria(g, a)) {
                 regraR10Mensageria(b, a, ev);
+            } else if (ehRastreamento(g, a)) {
+                regraR16Rastreamento(b, ev);
+            } else if (provedorDeIa(g, a) != null) {
+                regraR17ProvedorDeIa(b, provedorDeIa(g, a), ev);
+            } else if (ehArmazenamentoVetorial(g, a)) {
+                regraR18ArmazenamentoVetorial(b, ev);
             } else if (ehRegistroOuConfiguracao(a)) {
                 regraR12Registro(b, a, ev);
             } else if (ehRegistroDeMetricas(g, a)) {
@@ -89,10 +118,22 @@ public final class ArchetypeRules {
             } else if (ehEmail(a)) {
                 regraR14Email(b, ev);
             } else if (ehClienteHttpGenerico(g, a)) {
-                b.nota("a aplicacao usa cliente HTTP (" + d.coordenada()
-                        + "), mas os destinos nao sao declarados no Maven");
+                b.nota(notaDeClienteHttp(d.coordenada()));
             }
             // cache local, utilitarios e qualquer outra coisa: nenhum elemento
+        }
+
+        // R20: com interface, o ator chega pela interface, e nao direto na API.
+        // Feito depois do laco porque o webjar pode vir antes ou depois do starter web.
+        if (evInterface != null) {
+            if (b.contem(ID_PESSOA)) {
+                b.redirecionar(ID_PESSOA, ID_APP, ID_INTERFACE);
+            } else {
+                b.elemento(new C4Model.Elemento(Tipo.PESSOA, ID_PESSOA, "Usuario", null,
+                        "Consome a interface HTTP da aplicacao", Procedencia.DERIVADO, evInterface));
+                b.relacao(new C4Model.Relacao(ID_PESSOA, ID_INTERFACE, "HTTPS", "Usa",
+                        Procedencia.DERIVADO, evInterface));
+            }
         }
 
         // R5 e R7 dependem do conjunto todo, por isso rodam depois do laco.
@@ -162,24 +203,35 @@ public final class ArchetypeRules {
             modulos.put(artefato, "app_" + sanitizar(artefato));
         }
 
+        // id do modulo gateway -> coordenada do starter que o faz gateway (D19).
+        Map<String, String> gateways = gatewaysDoReator(todos);
+
         // Quantos modulos declaram cada armazenamento, para anotar o no unido.
         Map<String, Integer> declarantes = new LinkedHashMap<>();
 
         for (int i = 1; i < todos.size(); i++) {
             PomView modulo = todos.get(i).pom();
             String idDoModulo = "app_" + sanitizar(modulo.projeto().artifactId());
-            C4Model parcial = aplicar(modulo, categorias);
+            C4Model parcial = aplicar(modulo, categorias, gateways.containsKey(idDoModulo));
 
             // Identificadores validos apenas no modelo isolado, reapontados para
             // os do reator antes de copiar as relacoes.
             Map<String, String> reaponta = new LinkedHashMap<>();
             reaponta.put(ID_APP, idDoModulo);
+            String idDaInterface = "ui_" + sanitizar(modulo.projeto().artifactId());
+            reaponta.put(ID_INTERFACE, idDaInterface);
 
             for (C4Model.Elemento e : parcial.elementos()) {
                 if (ID_APP.equals(e.id())) {
                     b.elemento(new C4Model.Elemento(e.tipo(), idDoModulo,
                             modulo.projeto().artifactId(), e.tecnologia(), e.descricao(),
                             e.procedencia(), e.evidencia()));
+                    continue;
+                }
+
+                if (ID_INTERFACE.equals(e.id())) {
+                    b.elemento(new C4Model.Elemento(e.tipo(), idDaInterface, e.nome(),
+                            e.tecnologia(), e.descricao(), e.procedencia(), e.evidencia()));
                     continue;
                 }
 
@@ -215,6 +267,15 @@ public final class ArchetypeRules {
                 if (origem.equals(destino)) {
                     continue; // o modulo apontando para si mesmo nao informa nada
                 }
+                // D20: havendo gateway, o ator nao chama o servico direto; o gateway
+                // roteia, mas as rotas nao estao no pom, entao nao ha confirmacao.
+                if (ID_PESSOA.equals(origem) && destino.equals(idDoModulo)
+                        && !gateways.isEmpty() && !gateways.containsKey(idDoModulo)) {
+                    gateways.forEach((idGateway, starter) -> b.relacao(new C4Model.Relacao(
+                            idGateway, idDoModulo, "HTTP", "Roteia requisicoes",
+                            Procedencia.NAO_CONFIRMAVEL, new Evidencia(Fonte.POM, starter))));
+                    continue;
+                }
                 b.relacao(new C4Model.Relacao(origem, destino, r.tecnologia(),
                         r.descricao(), r.procedencia(), r.evidencia()));
             }
@@ -243,6 +304,34 @@ public final class ArchetypeRules {
         }
 
         return b.construir();
+    }
+
+    /**
+     * D19: e gateway o modulo que declara o starter do Spring Cloud Gateway e tem
+     * "gateway" no proprio artifactId; se nenhum tiver, todos os que declaram o
+     * starter. Um servico que usa o gateway como biblioteca (o genai do PetClinic)
+     * nao vira porta de entrada so por isso.
+     */
+    private static Map<String, String> gatewaysDoReator(List<ReactorView> todos) {
+        Map<String, String> candidatos = new LinkedHashMap<>();
+        for (int i = 1; i < todos.size(); i++) {
+            PomView m = todos.get(i).pom();
+            for (PomView.DependenciaView d : m.dependencias()) {
+                if (ESCOPOS_EM_EXECUCAO.contains(d.escopo()) && ehGateway(d.groupId(), d.artifactId())) {
+                    candidatos.putIfAbsent(m.projeto().artifactId(), d.coordenada());
+                }
+            }
+        }
+        Map<String, String> comNome = new LinkedHashMap<>();
+        candidatos.forEach((artefato, starter) -> {
+            if (artefato.toLowerCase(Locale.ROOT).contains("gateway")) {
+                comNome.put(artefato, starter);
+            }
+        });
+        Map<String, String> escolhidos = comNome.isEmpty() ? candidatos : comNome;
+        Map<String, String> porId = new LinkedHashMap<>();
+        escolhidos.forEach((artefato, starter) -> porId.put("app_" + sanitizar(artefato), starter));
+        return porId;
     }
 
     /**
@@ -376,7 +465,10 @@ public final class ArchetypeRules {
         b.elemento(new C4Model.Elemento(Tipo.SISTEMA_EXTERNO, id, nomeDeServicoDeInfra(artifactId),
                 "HTTP", "Registro de servicos ou configuracao centralizada",
                 Procedencia.DERIVADO, ev));
-        b.relacao(new C4Model.Relacao(ID_APP, id, "HTTP", "Registra-se em",
+        // D22: o Config Server fornece configuracao; Eureka e Consul recebem o registro.
+        String descricao = artifactId.equals("spring-cloud-starter-config")
+                ? "Obtem configuracao de" : "Registra-se em";
+        b.relacao(new C4Model.Relacao(ID_APP, id, "HTTP", descricao,
                 Procedencia.DERIVADO, ev));
     }
 
@@ -399,13 +491,126 @@ public final class ArchetypeRules {
                 Procedencia.DERIVADO, ev));
     }
 
+    /** R16: cliente do Zipkin implica coletor externo de rastreamento. */
+    private static void regraR16Rastreamento(C4Model.Builder b, Evidencia ev) {
+        // Id fixo: todos os modulos que enviam rastreamento apontam para o mesmo no.
+        b.elemento(new C4Model.Elemento(Tipo.SISTEMA_EXTERNO, ID_ZIPKIN, "Zipkin",
+                "HTTP", "Coleta de rastreamento distribuido", Procedencia.DERIVADO, ev));
+        b.relacao(new C4Model.Relacao(ID_APP, ID_ZIPKIN, "HTTP", "Envia rastreamento",
+                Procedencia.DERIVADO, ev));
+    }
+
+    /** R17: cliente de modelo de linguagem implica provedor externo, nomeado por ele. */
+    private static void regraR17ProvedorDeIa(C4Model.Builder b, String provedor, Evidencia ev) {
+        String id = "ext_" + sanitizar(provedor);
+        b.elemento(new C4Model.Elemento(Tipo.SISTEMA_EXTERNO, id, nomeDeProvedorDeIa(provedor),
+                "HTTPS", "Provedor de modelo de linguagem", Procedencia.DERIVADO, ev));
+        b.relacao(new C4Model.Relacao(ID_APP, id, "HTTPS", "Consulta modelo de linguagem",
+                Procedencia.DERIVADO, ev));
+    }
+
+    /**
+     * R18: a abstracao de armazenamento vetorial pode ser o SimpleVectorStore em
+     * memoria; o pom nao confirma um banco separado. Como a R4, sem relacao.
+     */
+    private static void regraR18ArmazenamentoVetorial(C4Model.Builder b, Evidencia ev) {
+        b.elemento(new C4Model.Elemento(Tipo.BANCO, "db_armazenamento_vetorial",
+                "Armazenamento vetorial", "Spring AI",
+                "Pode ficar em memoria no processo, nao ha como confirmar pelo pom",
+                Procedencia.NAO_CONFIRMAVEL, ev));
+    }
+
+    /** R19: o gateway e a porta de entrada: recebe o ator, mas as rotas nao estao no pom. */
+    private static void regraR19Gateway(C4Model.Builder b, String coordenada, Evidencia ev) {
+        regraR2Ator(b, ev);
+        b.nota("o gateway (" + coordenada + ") roteia requisicoes, mas as rotas nao sao"
+                + " declaradas no pom");
+    }
+
+    /** R20: webjar de framework de interface implica uma interface servida pela aplicacao. */
+    private static void regraR20Interface(C4Model.Builder b, PomView pom, String artifactId, Evidencia ev) {
+        if (b.contem(ID_INTERFACE)) {
+            return; // uma interface por modulo
+        }
+        b.elemento(new C4Model.Elemento(Tipo.INTERFACE, ID_INTERFACE, "Interface web",
+                nomeDeInterface(artifactId), "Servida por " + pom.projeto().artifactId(),
+                Procedencia.DERIVADO, ev));
+        b.relacao(new C4Model.Relacao(ID_INTERFACE, ID_APP, "JSON/HTTP", "Faz chamadas de API",
+                Procedencia.DERIVADO, ev));
+    }
+
+    private static String notaDeClienteHttp(String coordenada) {
+        return "a aplicacao usa cliente HTTP (" + coordenada
+                + "), mas os destinos nao sao declarados no Maven";
+    }
+
     // -----------------------------------------------------------------
     // Predicados
     // -----------------------------------------------------------------
 
     private static boolean ehWeb(String g, String a, String categoria) {
+        // D23: cliente HTTP e validacao estao na categoria web, mas nao servem HTTP.
+        if (ehClienteHttpDeBiblioteca(g) || ehValidacao(g, a)) {
+            return false;
+        }
         return "web".equals(categoria)
                 || (g.equals("org.springframework.boot") && a.startsWith("spring-boot-starter-web"));
+    }
+
+    private static boolean ehClienteHttpDeBiblioteca(String g) {
+        return g.equals("com.squareup.okhttp3") || g.equals("com.squareup.retrofit2");
+    }
+
+    private static boolean ehValidacao(String g, String a) {
+        return (g.equals("org.springframework.boot") && a.equals("spring-boot-starter-validation"))
+                || g.startsWith("jakarta.validation");
+    }
+
+    private static boolean ehGateway(String g, String a) {
+        return g.equals("org.springframework.cloud") && a.startsWith("spring-cloud-starter-gateway");
+    }
+
+    private static final List<String> WEBJARS_DE_INTERFACE =
+            List.of("angularjs", "angular", "angular__core", "react", "vue");
+
+    private static boolean ehInterfaceWeb(String g, String a) {
+        return g.startsWith("org.webjars") && WEBJARS_DE_INTERFACE.contains(a);
+    }
+
+    private static boolean ehRastreamento(String g, String a) {
+        return g.startsWith("io.zipkin")
+                || ((g.equals("org.springframework.boot") || g.equals("org.springframework.cloud"))
+                    && a.contains("zipkin"));
+    }
+
+    private static final String PREFIXO_MODELO_SPRING_AI = "spring-ai-starter-model-";
+
+    /** Provedor do modelo de linguagem, ou null se a dependencia nao for cliente de um. */
+    private static String provedorDeIa(String g, String a) {
+        if (g.equals("org.springframework.ai")) {
+            if (a.startsWith(PREFIXO_MODELO_SPRING_AI)) {
+                String p = a.substring(PREFIXO_MODELO_SPRING_AI.length());
+                // chat-memory e armazenamento de conversa, nao provedor
+                return p.startsWith("chat-memory") ? null : p;
+            }
+            // formato anterior ao 1.0: spring-ai-<provedor>-spring-boot-starter
+            if (a.startsWith("spring-ai-") && a.endsWith("-spring-boot-starter")) {
+                String p = a.substring("spring-ai-".length(), a.length() - "-spring-boot-starter".length());
+                return PROVEDORES_DE_IA.containsKey(p) ? p : null;
+            }
+            return null;
+        }
+        if (g.startsWith("com.openai")) {
+            return "openai";
+        }
+        if (g.startsWith("com.anthropic")) {
+            return "anthropic";
+        }
+        return null;
+    }
+
+    private static boolean ehArmazenamentoVetorial(String g, String a) {
+        return g.equals("org.springframework.ai") && a.equals("spring-ai-vector-store");
     }
 
     private static boolean ehDriverJdbc(String g, String a) {
@@ -482,6 +687,7 @@ public final class ArchetypeRules {
 
     private static boolean ehClienteHttpGenerico(String g, String a) {
         return a.contains("openfeign") || a.equals("spring-boot-starter-webflux")
+                || ehClienteHttpDeBiblioteca(g)
                 || (g.equals("org.springframework.cloud") && a.contains("loadbalancer"));
     }
 
@@ -581,6 +787,28 @@ public final class ArchetypeRules {
             return "Config Server";
         }
         return capitalizar(artifactId);
+    }
+
+    private static final Map<String, String> PROVEDORES_DE_IA = Map.of(
+            "openai", "OpenAI",
+            "anthropic", "Anthropic",
+            "ollama", "Ollama",
+            "azure-openai", "Azure OpenAI",
+            "mistral-ai", "Mistral AI",
+            "vertex-ai-gemini", "Vertex AI Gemini");
+
+    private static String nomeDeProvedorDeIa(String provedor) {
+        return PROVEDORES_DE_IA.getOrDefault(provedor, capitalizar(provedor));
+    }
+
+    private static String nomeDeInterface(String artifactId) {
+        return switch (artifactId) {
+            case "angularjs" -> "AngularJS";
+            case "angular", "angular__core" -> "Angular";
+            case "react" -> "React";
+            case "vue" -> "Vue.js";
+            default -> capitalizar(artifactId);
+        };
     }
 
     private static String nomeDeColetor(String artifactId) {
