@@ -221,16 +221,19 @@ class C4MermaidRendererTest {
     }
 
     @Test
-    @DisplayName("as dependencias nao identificadas saem em ordem alfabetica, com as linhas para incluir e para ignorar")
+    @DisplayName("as dependencias nao identificadas saem em ordem alfabetica, com uma linha para incluir no inicio e uma para ignorar em cada")
     void naoIdentificadasEmOrdemComInstrucoes() throws Exception {
         String m = render("org.zeta:zeta", "org.alfa:alfa");
 
+        String incluir = "%%   para incluir: add container | ext_... | Nome | Tecnologia | Descricao\n";
         int titulo = m.indexOf("%% ---- Dependencias nao identificadas (podem ser conteineres) ----");
+        int linhaIncluir = m.indexOf(incluir);
         int alfa = m.indexOf("%%   org.alfa:alfa (categoria nao-classificada)\n");
         int zeta = m.indexOf("%%   org.zeta:zeta (categoria nao-classificada)\n");
-        assertTrue(titulo >= 0 && titulo < alfa && alfa < zeta, m);
-        assertTrue(m.contains("%%     para incluir: add container | ext_... | Nome | Tecnologia | Descricao\n"));
+        assertTrue(titulo >= 0 && titulo < linhaIncluir && linhaIncluir < alfa && alfa < zeta, m);
+        assertEquals(1, m.split(java.util.regex.Pattern.quote("para incluir"), -1).length - 1, m);
         assertTrue(m.contains("%%     para ignorar: remove dependency | org.alfa:alfa\n"));
+        assertTrue(m.contains("%%     para ignorar: remove dependency | org.zeta:zeta\n"));
     }
 
     @Test

@@ -138,9 +138,10 @@ public final class C4MermaidRenderer {
                 .sorted(Comparator.comparing(C4Model.DependenciaNaoIdentificada::coordenada)).toList();
         if (!deps.isEmpty()) {
             linhas.add(TITULO_NAO_IDENTIFICADAS);
+            // Uma vez so: e igual para todas; o "para ignorar" muda com a coordenada.
+            linhas.add("  para incluir: add container | ext_... | Nome | Tecnologia | Descricao");
             for (C4Model.DependenciaNaoIdentificada d : deps) {
                 linhas.add("  " + d.coordenada() + " (" + origem(d) + ")");
-                linhas.add("    para incluir: add container | ext_... | Nome | Tecnologia | Descricao");
                 linhas.add("    para ignorar: remove dependency | " + d.coordenada());
             }
         }
