@@ -40,17 +40,8 @@ Part 1 = ERC-CORE, part 2 = ERC-ADD, part 3 = ERC-REMOVE (full specs below).
 ## Catalog language (all parts)
 
 UTF-8 text, one entry per line. Blank lines and lines starting with `#` are ignored.
-Two forms are accepted, and can be mixed in one file:
-
-- **Field form:** fields separated by `|`, whitespace around each field trimmed, first
-  field `<operation> <kind>`.
-- **Mermaid form:** `<operation>` followed by a line written as in the generated
-  `entity-diagram.mmd`. A user can copy a line from the diagram, put `add` or `remove` in
-  front of it and edit it (D53).
-
-The parser picks the form per line: if the text after the operation word starts with
-`relationship`, `entity` or `attribute` followed by `|`, it is the field form; otherwise
-it is the Mermaid form.
+Fields are separated by `|`, whitespace around each field is trimmed, and the first
+field is `<operation> <kind>`.
 
 ```
 # entity-catalog.txt
@@ -63,11 +54,6 @@ add attribute       | Visit | String | notes | nullable             (ERC-ADD)
 remove relationship | Pet | Pet | mother                           (ERC-REMOVE)
 remove attribute    | Owner | cache                                 (ERC-REMOVE)
 remove entity       | Helper                                        (ERC-REMOVE)
-
-# Mermaid form, same meaning
-add "Visit" }o--|| "Pet" : "petId"
-add "Owner" ||..o{ "Pet" : "pets"                                     (dotted, D54)
-remove "Pet" }o--o| "Pet" : "mother"                                  (ERC-REMOVE)
 ```
 
 | Operation | Kind | Fields after the first | Part |
@@ -78,8 +64,6 @@ remove "Pet" }o--o| "Pet" : "mother"                                  (ERC-REMOV
 | `remove` | `relationship` | `from` · `to` · [`label`] | ERC-REMOVE |
 | `remove` | `attribute` | `entity` · `name` | ERC-REMOVE |
 | `remove` | `entity` | `name` | ERC-REMOVE |
-| `add` / `remove` | (Mermaid relationship) | `<from> <symbol> <to> : <label>` | ERC-CORE / ERC-REMOVE |
-| `add` / `remove` | (Mermaid entity / attribute) | see the ERC-ADD and ERC-REMOVE "Mermaid form" | ERC-ADD / ERC-REMOVE |
 
 Common rules:
 - Entity names are the Java class simple names, as in the diagram identifiers (D23),
@@ -124,40 +108,6 @@ add relationship | <from> | <to> | <cardinality> | <label> [| <flags>]
   relationships.
   `dotted`: draw the line with `..` (D54). Any other flag → ignored with a warning.
 
-### `add relationship` — Mermaid form
-
-```
-add <from> <symbol> <to> : <label>
-```
-
-- `from` / `to`: an entity name, quoted (`"Visit"`) or bare (`Visit`, Mermaid word
-  `[A-Za-z_][A-Za-z0-9_-]*`). Same rule for `label`: quoted or one bare word. Required.
-- `symbol` = left end + line + right end, without spaces, as in Mermaid:
-
-  | Left end | Meaning | Right end | Meaning |
-  |----------|---------|-----------|---------|
-  | `}o`, `}\|` | many | `o{`, `\|{` | many |
-  | `\|o`, `\|\|` | one | `o\|` | one, optional |
-  | | | `\|\|` | one, required |
-
-  Line `--` = solid, `..` = dotted (D54).
-- Cardinality from the ends: many/one → `MANY_TO_ONE`, one/many → `ONE_TO_MANY`,
-  one/one → `ONE_TO_ONE`, many/many → `MANY_TO_MANY`. `required` = right end `||` on a
-  to-one cardinality.
-- The view has no optionality for the left end or for "many" ends, so `}|`, `|o` and `|{`
-  are accepted but read as `}o`, `||` and `o{`, with the warning
-  `Line N: optionality of the '<end>' end is not kept`. The rendered line then shows what
-  the view holds.
-- Anything else (unknown symbol, missing `:` or label, extra text) → line skipped, warning.
-
-The two forms produce the same `AddRelationship` entry:
-
-| Mermaid form | Field form |
-|--------------|------------|
-| `add "Visit" }o--\|\| "Pet" : "petId"` | `add relationship \| Visit \| Pet \| many-to-one \| petId \| required` |
-| `add "Visit" }o--o\| "Pet" : "petId"` | `add relationship \| Visit \| Pet \| many-to-one \| petId` |
-| `add "Owner" \|\|..o{ "Pet" : "pets"` | `add relationship \| Owner \| Pet \| one-to-many \| pets \| dotted` |
-
 ### Decisions
 
 | # | Decision | Reason |
@@ -172,9 +122,8 @@ The two forms produce the same `AddRelationship` entry:
 | D50 | Missing or unreadable catalog file: warning, diagram generated without the catalog. An empty file or one with no valid lines changes nothing | Same as `assis-pom`: the catalog never breaks a run. |
 | D51 | CLI (decided): `--catalog <file>` (value after a space, like `-d`). Valid when the ER diagram is generated (no diagram flag, or `--er`); with only `--class` it is a usage error `Option --catalog requires the entity diagram` | Same reasoning as D34: the option only affects the ER diagram. |
 | D52 | The catalog applies with and without `--inferred`. `hiddenInferred` (D36) is not changed by the catalog | The user's facts do not depend on the guess mode. |
-| D53 | Two equivalent forms per line: field form and Mermaid form (`add "Visit" }o--\|\| "Pet" : "petId"`). Rule: any line of the generated `.mmd` with `add`/`remove` in front is a valid catalog line (relationships in ERC-CORE, entities and attributes in ERC-ADD) | Users can copy from the diagram they are fixing; the field form stays for readable, explicit edits. Both parse to the same `CatalogEntry`. |
 | D55 | Entities and attributes created or changed by the catalog (ERC-ADD) get a `%% from catalog` line above them; catalog relationships are marked by their group note (D47) instead | Same "show where it came from" rule as relationships, without breaking Mermaid (`%%` lines are stripped before parsing, D25). |
-| D54 | A catalog relationship is solid unless the user asks for dotted (`..` in the Mermaid form, `dotted` flag in the field form). Dotted catalog lines stay in the catalog group and are not `inferred` | Refines D47: the user decides the line style; "inferred" keeps meaning "guessed by the tool". |
+| D54 | A catalog relationship is solid unless the user asks for dotted (`dotted` flag). Dotted catalog lines stay in the catalog group and are not `inferred` | Refines D47: the user decides the line style; "inferred" keeps meaning "guessed by the tool". |
 
 ### Components
 
@@ -184,8 +133,7 @@ New package `io.github.masmangan.assis.er.catalog` (folder `er/catalog/`), same 
 | File | Holds |
 |------|-------|
 | `EntityCatalog` (public) | `static EntityCatalog empty()`, `static EntityCatalog from(Path file)`, `static EntityCatalog fromText(String text)`, `EntityView apply(EntityView view)`, `List<String> warnings()`, `int size()` |
-| `CatalogParser` | Text → `List<CatalogEntry>` plus warnings. Splits the operation word, detects the form (D53), then one `switch` on `<kind>` (field form) or a Mermaid-line reader; one small parse method per kind |
-| `MermaidLine` | Mermaid-form reader: names (quoted or bare), relationship symbol → cardinality, `required`, `dotted`. ERC-ADD adds entity/attribute lines here |
+| `CatalogParser` | Text → `List<CatalogEntry>` plus warnings. Splits the operation word, then one `switch` on `<kind>`; one small parse method per kind |
 | `CatalogEntry` | `sealed interface CatalogEntry { int line(); Phase phase(); EntityView applyTo(EntityView view, List<String> warnings); }` with `enum Phase { ADD_ENTITY, ADD_RELATIONSHIP, REMOVE }` (D49) |
 | `AddRelationship` | `record AddRelationship(int line, String from, String to, Cardinality cardinality, String label, boolean required, boolean dotted) implements CatalogEntry` |
 
@@ -265,12 +213,7 @@ Parser — `CatalogParserTest` (pure text, package `er.catalog`):
 | CP6 | `required` on `one-to-many` / `many-to-many`; unknown flag | entry kept without that flag, warning |
 | CP7 | Unknown operation or kind (`update relationship`, `add table`) | skipped, warning |
 | CP8 | `add entity`, `add attribute`, `remove …` in ERC-CORE | skipped, warning `not supported yet` |
-| CP9 | Mermaid form, each of the four cardinalities, quoted and bare names/label | same `AddRelationship` as the field form (table above) |
-| CP10 | Mermaid right end `\|\|` / `o\|` on to-one | `required` true / false |
-| CP11 | `..` line; field form `dotted`, `required, dotted` | `dotted` true |
-| CP12 | Ends `}\|`, `\|o`, `\|{` | read as `}o`, `\|\|`, `o{`, warning (left-end / many-end optionality not kept) |
-| CP13 | Unknown symbol (`}o-->`), missing `:`, missing label, extra text after label | skipped, warning |
-| CP14 | A relationship line copied from a generated `.mmd` (with indent) plus `add ` in front | parsed |
+| CP11 | Flags `dotted`, `required, dotted` | `dotted` true |
 
 Resolver — `EntityCatalogTest`:
 
@@ -318,7 +261,7 @@ All existing tests keep passing unchanged (no catalog → no change).
 
 ### Done when
 
-- CP1–CP14, CA1–CA9, CR1–CR4, CG1–CG3, CC1–CC5 pass, plus `mvn test` from the root.
+- CP1–CP8, CP11, CA1–CA9, CR1–CR4, CG1–CG3, CC1–CC5 pass, plus `mvn test` from the root.
 - User docs updated; `assis-er/CLAUDE.md` lists `er.catalog`; `graphify update .` run. No commits.
 
 ### ERC-CORE — Implementation Plan
@@ -328,7 +271,7 @@ All existing tests keep passing unchanged (no catalog → no change).
 > few comments. `graphify query` before reading code, `graphify update .` after.
 
 1. `EntityView.Relationship.fromCatalog`, `dotted` + secondary constructors; renderer groups and dotted symbol (CR1–CR4).
-2. `CatalogEntry`, `AddRelationship`, `CatalogParser`, `MermaidLine` (CP1–CP14).
+2. `CatalogEntry`, `AddRelationship`, `CatalogParser` (CP1–CP8, CP11).
 3. `EntityCatalog` (`empty`, `from`, `fromText`, `apply`, phases, warnings) (CA1–CA9).
 4. `GenerateEntityDiagram` overload + sample `samples/catalog` and its catalog file (CG1–CG3).
 5. `assis-cli`: `Args`, `CliArgs`, `AssisApp`, usage, user docs (CC1–CC5).
@@ -343,13 +286,11 @@ All existing tests keep passing unchanged (no catalog → no change).
 In:
 - `add entity`: create a missing entity, or set the table name of an existing one.
 - `add attribute`: add or replace one attribute; creates the entity when missing.
-- Mermaid form for both (D53): entity line, alias, one-line attribute block.
 - `%% from catalog` notes above catalog-created/changed entities and attributes (D55).
 - `add relationship` can target entities created by the catalog (D45, D49).
 
 Out: every `remove` (ERC-REMOVE); re-running inference or FK detection on catalog
-attributes (D61); column comments other than `column=`; the `%% table:` note form as
-input (use the field form for table names that are not a Mermaid alias).
+attributes (D61); column comments other than `column=`.
 
 ### `add entity`
 
@@ -391,7 +332,7 @@ add attribute | <entity> | <type> | <name> [| <flags>]
   - Unknown flag → ignored with a warning.
 - **Match (D58):** an attribute of the entity whose `name` equals the catalog name, else
   one whose `columnName` equals it (the diagram shows the column when it is a valid word,
-  so a line copied from the `.mmd` still finds its attribute).
+  so the name the user sees still finds its attribute).
   - **Match → replaced in place** (keeps its position). The replacement is the whole
     attribute: type, `pk`, `fk`, `nullable`, `column` all come from the catalog line;
     the Java name of the matched attribute is kept when the match was by column name, and
@@ -399,42 +340,6 @@ add attribute | <entity> | <type> | <name> [| <flags>]
   - **No match →** appended after the existing attributes.
   - The attribute gets `fromCatalog` true; the entity's own `fromCatalog` is not changed
     by attribute lines on an existing entity.
-
-### Mermaid form
-
-The lines the renderer writes for entities, with `add` in front (D53):
-
-```
-add "AuditLog"                               entity, no attributes
-add "AuditLog"["audit_log"]                  entity with table
-add "Visit" { String? notes }                one attribute
-add "Visit" { Long id PK; PetId? petId FK }  several attributes, separated by ;
-add "Visit"["visits"] { String? notes }      table and attributes
-```
-
-- Name: quoted or bare, as for relationships. Alias: `["<table>"]` directly after the name.
-- Block: `{`, attributes separated by `;`, `}` — one catalog line, because the catalog is
-  one entry per line (Mermaid itself needs line breaks there). Empty block `{ }` = no
-  attributes.
-- Attribute: `<type>[?] <name> [PK] [FK]` (also `PK, FK`, case-insensitive keys). `type`
-  has no spaces (Mermaid form; use `~` for generics, as the diagram shows). `?` →
-  `nullable`. Anything else (third word that is not a key, missing name, a `"comment"`)
-  → that attribute is skipped with a warning; the other attributes of the line still apply.
-- What one line becomes (D56):
-  - an alias → one `AddEntity` with the table;
-  - no alias and no block → one `AddEntity` without table;
-  - a block → one `AddAttribute` per attribute (the entity is created by them if missing);
-    no extra `AddEntity` unless there is an alias.
-- A `column=` has no Mermaid form; use the field form.
-
-Field form ↔ Mermaid form:
-
-| Mermaid form | Field form |
-|--------------|------------|
-| `add "AuditLog"["audit_log"]` | `add entity \| AuditLog \| audit_log` |
-| `add "Visit" { String? notes }` | `add attribute \| Visit \| String \| notes \| nullable` |
-| `add "Visit" { PetId petId FK }` | `add attribute \| Visit \| PetId \| petId \| fk` |
-| `add "AuditLog" { Long id PK }` | `add attribute \| AuditLog \| Long \| id \| pk` |
 
 ### Application
 
@@ -475,9 +380,8 @@ Field form ↔ Mermaid form:
 
 | # | Decision | Reason |
 |---|----------|--------|
-| D56 | `CatalogParser` turns one line into a list of entries; a Mermaid entity line gives an `AddEntity` (when it has an alias or no block) plus one `AddAttribute` per block attribute | One line can state several facts; each entry stays one operation with one `applyTo`, so ERC-REMOVE can follow the same shape. |
 | D57 | `add entity` on an existing entity only sets the table; with no new table it changes nothing, silently | The catalog never drops extracted attributes by accident. The line states something already true, so it is not a problem to warn about. |
-| D58 | An attribute is matched by Java name, else by column name; a match is replaced whole (keeping its Java name and position; on a column match the catalog name stays the column) | The catalog states the full attribute; matching by column lets users copy lines from the `.mmd`, which shows column names (D25). |
+| D58 | An attribute is matched by Java name, else by column name; a match is replaced whole (keeping its Java name and position; on a column match the catalog name stays the column) | The catalog states the full attribute; matching by column lets users use the names the `.mmd` shows, which are column names (D25). |
 | D59 | Duplicate catalog entity (with table) or attribute (same entity + name): last wins, without a warning | Same as D48. |
 | D60 | Attribute flags `pk`, `fk`, `nullable`, `column=<name>`; not nullable by default; `pk` + `nullable` drops `nullable` silently | Explicit facts only; an id is never nullable, as in the extractor. The key is applied, so the line is not a problem. |
 | D61 | The catalog does not re-run extraction or inference on what it adds | The catalog is applied to the `EntityView` (D43), which has no JavaParser types; the user states FKs and relationships directly. |
@@ -501,14 +405,13 @@ Field form ↔ Mermaid form:
 | `CatalogEntry` | `permits AddRelationship, AddEntity, AddAttribute` |
 | `AddEntity` (new) | `record AddEntity(int line, String name, String table) implements CatalogEntry`, phase `ADD_ENTITY` |
 | `AddAttribute` (new) | `record AddAttribute(int line, String entity, EntityView.Attribute attribute) implements CatalogEntry`, phase `ADD_ENTITY`; creates the entity when missing, then matches (D58) |
-| `CatalogParser` | `parseLine` returns `List<CatalogEntry>` (D56); `fieldEntity`, `fieldAttribute`, flag parsing (D60); `add entity` / `add attribute` no longer "not supported" |
-| `MermaidLine` | `entity(int line, String text, List<String> warnings)` → `List<CatalogEntry>` (alias, block, attributes split on `;`) |
+| `CatalogParser` | `fieldEntity`, `fieldAttribute`, flag parsing (D60); `add entity` / `add attribute` no longer "not supported" |
 
 `GenerateEntityDiagram`, `assis-cli`: no change (the option and usage text already cover
 entities and attributes).
 
 User docs (`docs/user/assis-gs-bash.md`, "Catalog" section): `add entity` / `add
-attribute` rows, flags, Mermaid form example, the `%% from catalog` note.
+attribute` rows, flags, the `%% from catalog` note.
 
 ### Output
 
@@ -518,11 +421,11 @@ sources (sources unchanged):
 ```
 add relationship | AuditLog | Visit | many-to-one | visit
 add entity       | AuditLog | audit_log
-add "AuditLog" { Long id PK }
+add attribute    | AuditLog | Long | id | pk
 add attribute    | Visit | String | notes | nullable
-add "Visit" { PetId petId FK }
-add "Pet"["pets"]
-add "Owner"
+add attribute    | Visit | PetId | petId | fk
+add entity       | Pet | pets
+add entity       | Owner
 ```
 
 ```
@@ -555,7 +458,7 @@ erDiagram
 - Line 1 refers to `AuditLog` before it is declared; phases (D49) make it valid.
 - `petId` was extracted as `PetId? petId`; the catalog replaces it in place, not nullable,
   `FK` (D58).
-- `add "Owner"`: exists, no table → unchanged, no warning (D57).
+- `add entity | Owner`: exists, no table → unchanged, no warning (D57).
 
 ### Required test cases
 
@@ -570,13 +473,6 @@ Parser — `CatalogParserTest`:
 | CP18 | Flags `pk`, `fk`, `nullable`, `column=visit_notes`, mixed case and order | each set; `column=` with the name itself → `null` |
 | CP19 | `pk, nullable`; `column=` empty; unknown flag | entry kept, that flag dropped; warning for the empty column and the unknown flag, none for `pk, nullable` (D60) |
 | CP20 | `add attribute` with empty type, type with `{`, name that is not an attribute word (`PK`, `1x`) | skipped, warning |
-| CP21 | Mermaid `add "X"`, `add X`, `add "X"["x_table"]`, `add "X" { }` | one `AddEntity` each, table as written |
-| CP22 | Mermaid `add "Visit" { String? notes }`, `{ Long id PK; PetId? petId FK }`, `PK, FK` | `AddAttribute` per attribute, same values as the field form (table above) |
-| CP23 | Mermaid `add "Visit"["visits"] { String notes }` | `AddEntity` then `AddAttribute`, same line number |
-| CP24 | Mermaid generic type `Set~PetId~?` | type `Set~PetId~`, nullable |
-| CP25 | Mermaid block with one bad attribute (`String`, `String a b`, `String a "c"`) among good ones | good ones kept, one warning per bad one |
-| CP26 | Mermaid unclosed block `add "Visit" {`, text after `}` | skipped, warning |
-| CP27 | Entity line copied from a generated `.mmd` with indent, plus `add ` | parsed |
 
 Resolver — `EntityCatalogTest`:
 
@@ -615,7 +511,7 @@ All existing tests keep passing; CP8 is updated (only `remove` stays unsupported
 
 ### Done when
 
-- CP8, CP15–CP27, CA10–CA21, CR5–CR8, CG4–CG5 pass, plus `mvn test` from the root.
+- CP8, CP15–CP20, CA10–CA21, CR5–CR8, CG4–CG5 pass, plus `mvn test` from the root.
 - Roadmap row ✅; user docs updated; `assis-er/CLAUDE.md` catalog table lists `AddEntity`,
   `AddAttribute`; `graphify update .` run. No commits.
 
@@ -628,27 +524,23 @@ All existing tests keep passing; CP8 is updated (only `remove` stays unsupported
 1. `EntityView.Entity.fromCatalog`, `Attribute.fromCatalog` + secondary constructors;
    renderer `FROM_CATALOG_NOTE`, `isEntityName`, `isAttributeWord` (CR5–CR8).
 2. `AddEntity`, `AddAttribute`, `CatalogEntry` permits (CA10–CA21, built directly, no parser).
-3. `CatalogParser` field form: `parseLine` → list, `fieldEntity`, `fieldAttribute`, flags
+3. `CatalogParser`: `fieldEntity`, `fieldAttribute`, flags
    (CP8, CP15–CP20).
-4. `MermaidLine.entity` (CP21–CP27).
-5. `samples/catalog-files/entity-catalog-add.txt`, CG4–CG5.
-6. User docs, `assis-er/CLAUDE.md`, roadmap ✅, full `mvn test`, `graphify update .`.
+4. `samples/catalog-files/entity-catalog-add.txt`, CG4–CG5.
+5. User docs, `assis-er/CLAUDE.md`, roadmap ✅, full `mvn test`, `graphify update .`.
 
 ## ERC-REMOVE — Removal
 
 ### Rule
 
-**A remove line is an add line with `remove` in front; only its key is used.**
+**A remove line names only the key of the item to remove.**
 
-| Kind | Key | Field form | Mermaid form |
-|------|-----|------------|--------------|
-| relationship | `from` + `to` + `label` | `remove relationship \| Pet \| Pet \| mother` | `remove "Pet" }o--o\| "Pet" : "mother"` |
-| attribute | entity + name | `remove attribute \| Owner \| cache` | `remove "Owner" { String? cache }` |
-| entity | name | `remove entity \| Helper` | `remove "Helper"` |
+| Kind | Key | Line |
+|------|-----|------|
+| relationship | `from` + `to` + `label` | `remove relationship \| Pet \| Pet \| mother` |
+| attribute | entity + name | `remove attribute \| Owner \| cache` |
+| entity | name | `remove entity \| Helper` |
 
-- The Mermaid form is parsed exactly like `add` (same patterns, same warnings), then the
-  entries are turned into removals: symbol, type, keys and alias are ignored. A line with
-  an attribute block removes only those attributes, never the entity.
 - An attribute is found by Java name, else by column name (as D58).
 - `remove entity` also removes every relationship from or to that entity (D64).
 - Removals run last (phase `REMOVE`, D49), in file order, so a removal wins over an `add`
@@ -660,7 +552,7 @@ All existing tests keep passing; CP8 is updated (only `remove` stays unsupported
 
 | # | Decision | Reason |
 |---|----------|--------|
-| D63 | A remove line has the same syntax as an add line; only the key is read. A label is always required for relationships | One syntax to learn; any `.mmd` line works with `add` or `remove` in front (D53). No "remove all between A and B" mode to explain. |
+| D63 | A remove line gives only the key. A label is always required for relationships | The key is all a removal needs. No "remove all between A and B" mode to explain. |
 | D64 | `remove entity` removes its relationships too; attributes of other entities (FK markers) stay | A relationship to a missing entity would make Mermaid draw an empty box (D45). An FK column is still in the code. |
 | D65 | A removal that finds nothing warns and changes nothing | Same as every catalog problem: a warning, never an error. |
 
@@ -668,8 +560,7 @@ All existing tests keep passing; CP8 is updated (only `remove` stays unsupported
 
 - `RemoveRelationship(line, from, to, label)`, `RemoveAttribute(line, entity, name)`,
   `RemoveEntity(line, name)`: new records, phase `REMOVE`, added to `CatalogEntry`'s `permits`.
-- `CatalogParser`: field-form `remove` branches (key fields only); Mermaid `remove` lines
-  are parsed as `add` and mapped to removals; `notSupported` deleted.
+- `CatalogParser`: `remove` branches (key fields only); `notSupported` deleted.
 - No change to `EntityView`, the renderer, `EntityCatalog`, `GenerateEntityDiagram` or the CLI.
 - User docs: the three `remove` rows. `assis-er/CLAUDE.md`: new records; drop the
   `not supported yet` rule.
@@ -682,7 +573,7 @@ All existing tests keep passing; CP8 is updated (only `remove` stays unsupported
 add entity       | AuditLog
 remove entity    | Pet
 remove attribute | Visit | pastPets
-remove "Visit" { PetId? petId }
+remove attribute | Visit | petId
 remove entity    | Ghost
 ```
 
@@ -707,10 +598,9 @@ first line.
 
 | ID | Test | Case | Expected |
 |----|------|------|----------|
-| CP8 | Parser | (changed) one line per operation/kind, both forms | all parse, no `not supported yet` |
-| CP28 | Parser | Each remove kind, field and Mermaid form | the matching `Remove…` entry; same entry from both forms |
-| CP29 | Parser | Wrong field count, empty name/label, bad Mermaid line | skipped, warning |
-| CP30 | Parser | Mermaid line with attribute block (with alias) | only `RemoveAttribute`s |
+| CP8 | Parser | (changed) one line per operation/kind | all parse, no `not supported yet` |
+| CP28 | Parser | Each remove kind | the matching `Remove…` entry |
+| CP29 | Parser | Wrong field count, empty name/label | skipped, warning |
 | CA22 | Resolver | Remove relationship / attribute (by name, by column) / entity | removed; order of the rest kept |
 | CA23 | Resolver | `remove entity` with relationships from, to and to itself | all gone; other entities unchanged |
 | CA24 | Resolver | Item not there; same removal twice | warning (second line) |
@@ -722,6 +612,6 @@ first line.
 > TDD per task, no commits, `graphify update .` after (same rules as ERC-ADD).
 
 1. The three records + permits (CA22–CA25).
-2. Parser: field form, Mermaid mapping, delete `notSupported` (CP8, CP28–CP30).
+2. Parser: `remove` branches, delete `notSupported` (CP8, CP28–CP29).
 3. Sample catalog + CG6.
 4. Docs, `assis-er/CLAUDE.md`, roadmap ✅, full `mvn test`.

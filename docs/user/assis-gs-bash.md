@@ -123,26 +123,25 @@ java -jar assis.jar --er --inferred
 
 If the entity diagram misses a relationship, an entity or an attribute, shows one too many, or draws one wrong, write it in a
 **catalog** file and pass it with `--catalog`. The catalog wins over what ASSIS found.
-One entry per line; `#` starts a comment. Copy a line from `entity-diagram.mmd` and put
-`add` in front of it, or use the field form:
+One entry per line, fields separated by `|`; `#` starts a comment:
 
 ```text
 # entity-catalog.txt
-add "Visit" }o--|| "Pet" : "petId"
+add relationship | Visit | Pet | many-to-one | petId | required
 add relationship | Owner | Pet | one-to-many | pets
 add relationship | Visit | Vet | many-to-one | vetId | required, dotted
 add entity | AuditLog | audit_log
 add attribute | Visit | String | notes | nullable
-add "Visit" { Long id PK; PetId? petId FK }
+add attribute | Visit | PetId | petId | fk, nullable
 remove entity | Helper
-remove "Pet" }o--o| "Pet" : "mother"
+remove relationship | Pet | Pet | mother
 ```
 
 ```bash
 java -jar assis.jar --er --catalog entity-catalog.txt
 ```
 
-| Field form | Values |
+| Line | Values |
 |------------|--------|
 | `add relationship \| <from> \| <to> \| <cardinality> \| <label> [\| <flags>]` | cardinality: `many-to-one`, `one-to-many`, `one-to-one`, `many-to-many`; flags: `required`, `dotted` |
 | `add entity \| <name> [\| <table>]` | creates the entity, or sets the table name of an existing one |
@@ -155,10 +154,8 @@ Both entities of a relationship must exist in the diagram or be added by the cat
 otherwise the line is skipped with a warning.
 `add attribute` creates the entity when it is missing. An attribute with the same name
 (or the same column name) as a found one replaces it in place; a new one is added at the end.
-In the Mermaid form, several attributes go in one line, separated by `;`.
 Entities and attributes added or changed by the catalog get a `%% from catalog` line above them.
-Any line of the diagram also works with `remove` in front; removals are applied after all
-additions, so they always win.
+Removals are applied after all additions, so they always win.
 A catalog line with the same from, to and label as a found relationship replaces it.
 Catalog relationships are listed after the comment `%% Relationships below come from the catalog`.
 Problems in the file are logged as warnings; the diagram is still generated.

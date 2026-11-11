@@ -1,4 +1,4 @@
 # catalog for samples/catalog
 add relationship | Visit | Pet | many-to-one | petId | required
-add "Pet" }o--|| "Owner" : "owner"
+add relationship | Pet | Owner | many-to-one | owner | required
 add relationship | Visit | Ghost | many-to-one | ghost

@@ -1,8 +1,8 @@
 # ERC-ADD catalog for samples/catalog
 add relationship | AuditLog | Visit | many-to-one | visit
 add entity       | AuditLog | audit_log
-add "AuditLog" { Long id PK }
+add attribute    | AuditLog | Long | id | pk
 add attribute    | Visit | String | notes | nullable
-add "Visit" { PetId petId FK }
-add "Pet"["pets"]
-add "Owner"
+add attribute    | Visit | PetId | petId | fk
+add entity       | Pet | pets
+add entity       | Owner
