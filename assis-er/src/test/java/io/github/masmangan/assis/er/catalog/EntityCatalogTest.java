@@ -76,7 +76,7 @@ class EntityCatalogTest {
 	@Test
 	void replacesInferredRelationshipWithSolidOne() {
 		// CA5
-		EntityView out = EntityCatalog.fromText("add \"Visit\" }o--|| \"Pet\" : \"petId\"").apply(view());
+		EntityView out = EntityCatalog.fromText("add relationship | Visit | Pet | many-to-one | petId | required").apply(view());
 		assertEquals(List.of(OWNER, catalog("Visit", "Pet", Cardinality.MANY_TO_ONE, "petId", true)),
 				out.relationships());
 		assertFalse(out.relationships().get(1).inferred());
