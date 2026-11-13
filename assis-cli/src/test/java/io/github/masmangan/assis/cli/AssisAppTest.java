@@ -8,7 +8,6 @@ package io.github.masmangan.assis.cli;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -88,7 +87,6 @@ class AssisAppTest {
 		} finally {
 			try {
 				Files.deleteIfExists(pumlPath);
-				Files.deleteIfExists(expectedOut.resolve(ER_FILE));
 			} catch (Exception ignored) {
 				throw new IllegalStateException("Clean up failed.");
 			}
@@ -115,7 +113,6 @@ class AssisAppTest {
 		} finally {
 			try {
 				Files.deleteIfExists(pumlPath);
-				Files.deleteIfExists(expectedOut.resolve(ER_FILE));
 			} catch (Exception ignored) {
 				throw new IllegalStateException("Clean up failed.");
 			}
@@ -196,159 +193,6 @@ class AssisAppTest {
 			assertTrue(logs.any(Level.INFO, "ASSIS"),
 					"Expected version output to mention ASSIS (logged at CONFIG).\nLogs:\n" + logs.dump());
 		}
-	}
-
-	private static final String ER_FILE = "entity-diagram.mmd";
-
-	private Path runOnHello(String... flags) throws Exception {
-		Path src = tempDir.resolve("src");
-		Files.createDirectories(src);
-		Files.writeString(src.resolve("Hello.java"), "public class Hello {\n}\n", UTF_8);
-		Path out = tempDir.resolve("out");
-
-		String[] base = { "-sourcepath", src.toString(), "-d", out.toString() };
-		String[] args = java.util.stream.Stream.concat(java.util.Arrays.stream(base), java.util.Arrays.stream(flags))
-				.toArray(String[]::new);
-		assertEquals(0, AssisApp.run(args));
-		return out;
-	}
-
-	@Test
-	void generatesBothDiagramsWithoutFlags() throws Exception {
-		Path out = runOnHello();
-
-		assertTrue(Files.exists(out.resolve(PUML_FILE)));
-		assertTrue(Files.exists(out.resolve(ER_FILE)));
-	}
-
-	@Test
-	void erFlagGeneratesOnlyEntityDiagram() throws Exception {
-		Path out = runOnHello("--er");
-
-		assertTrue(Files.readString(out.resolve(ER_FILE), UTF_8).startsWith("erDiagram"));
-		assertFalse(Files.exists(out.resolve(PUML_FILE)));
-	}
-
-	@Test
-	void classFlagGeneratesOnlyClassDiagram() throws Exception {
-		Path out = runOnHello("--class");
-
-		assertTrue(Files.exists(out.resolve(PUML_FILE)));
-		assertFalse(Files.exists(out.resolve(ER_FILE)));
-	}
-
-	@Test
-	void bothFlagsGenerateBothDiagrams() throws Exception {
-		Path out = runOnHello("--class", "--er");
-
-		assertTrue(Files.exists(out.resolve(PUML_FILE)));
-		assertTrue(Files.exists(out.resolve(ER_FILE)));
-	}
-
-	@Test
-	void usageDocumentsDiagramFlags() {
-		assertTrue(CliArgs.usage.contains("--class"));
-		assertTrue(CliArgs.usage.contains("--er"));
-	}
-
-	private Path writeIdReferenceSample() throws Exception {
-		Path src = tempDir.resolve("idsrc");
-		Files.createDirectories(src);
-		Files.writeString(src.resolve("OwnerId.java"), "public class OwnerId {\n}\n", UTF_8);
-		Files.writeString(src.resolve("Owner.java"), "@Entity\npublic class Owner {\n\t@Id\n\tOwnerId id;\n}\n", UTF_8);
-		Files.writeString(src.resolve("Pet.java"),
-				"@Entity\npublic class Pet {\n\t@Id\n\tLong id;\n\tOwnerId ownerId;\n}\n", UTF_8);
-		return src;
-	}
-
-	private String runEr(Path src, String... flags) throws Exception {
-		Path out = tempDir.resolve("er-out");
-		String[] base = { "-sourcepath", src.toString(), "-d", out.toString(), "--er" };
-		String[] args = java.util.stream.Stream.concat(java.util.Arrays.stream(base), java.util.Arrays.stream(flags))
-				.toArray(String[]::new);
-		assertEquals(0, AssisApp.run(args));
-		return Files.readString(out.resolve(ER_FILE), UTF_8);
-	}
-
-	@Test
-	void erWithoutInferredHasNoDottedLines() throws Exception {
-		String er = runEr(writeIdReferenceSample());
-
-		assertTrue(er.startsWith("%% There could be relationships that were not shown"), er);
-		assertFalse(er.contains("}o.."), er);
-	}
-
-	@Test
-	void erWithInferredDrawsDottedLines() throws Exception {
-		String er = runEr(writeIdReferenceSample(), "--inferred");
-
-		assertFalse(er.contains("There could be relationships"), er);
-		assertTrue(er.contains("\"Pet\" }o..|| \"Owner\" : \"ownerId\""), er);
-	}
-
-	@Test
-	void inferredWithoutErIsRejected() {
-		try (var logs = new JulLogCaptor(AssisApp.class)) {
-			assertNotEquals(0, AssisApp.run(new String[] { "--inferred" }));
-			assertNotEquals(0, AssisApp.run(new String[] { "--class", "--inferred" }));
-			assertTrue(logs.any(Level.SEVERE, "--inferred requires --er"), logs.dump());
-		}
-	}
-
-	private Path writeCatalog() throws Exception {
-		Path catalog = tempDir.resolve("entity-catalog.txt");
-		Files.writeString(catalog, "add relationship | Pet | Owner | many-to-one | ownerId | required\n", UTF_8);
-		return catalog;
-	}
-
-	@Test
-	void erWithCatalogDrawsCatalogLine() throws Exception {
-		// CC1
-		String er = runEr(writeIdReferenceSample(), "--catalog", writeCatalog().toString());
-
-		assertTrue(er.contains("\"Pet\" }o--|| \"Owner\" : \"ownerId\""), er);
-	}
-
-	@Test
-	void catalogWithoutDiagramFlagAppliesToEntityDiagram() throws Exception {
-		// CC2
-		Path out = tempDir.resolve("cc2-out");
-		String[] args = { "-sourcepath", writeIdReferenceSample().toString(), "-d", out.toString(), "--catalog",
-				writeCatalog().toString() };
-		assertEquals(0, AssisApp.run(args));
-
-		assertTrue(Files.exists(out.resolve(PUML_FILE)));
-		assertTrue(Files.readString(out.resolve(ER_FILE), UTF_8).contains("\"Pet\" }o--|| \"Owner\" : \"ownerId\""));
-	}
-
-	@Test
-	void catalogWithOnlyClassIsRejected() throws Exception {
-		// CC3
-		String catalog = writeCatalog().toString();
-		try (var logs = new JulLogCaptor(AssisApp.class)) {
-			assertNotEquals(0, AssisApp.run(new String[] { "--class", "--catalog", catalog }));
-			assertTrue(logs.any(Level.SEVERE, "--catalog requires the entity diagram"), logs.dump());
-		}
-	}
-
-	@Test
-	void catalogWithoutValueIsRejected() {
-		// CC4
-		try (var logs = new JulLogCaptor(AssisApp.class)) {
-			assertNotEquals(0, AssisApp.run(new String[] { "--er", "--catalog" }));
-			assertTrue(logs.any(Level.SEVERE, "Missing value for --catalog"), logs.dump());
-		}
-	}
-
-	@Test
-	void usageDocumentsCatalog() {
-		// CC5
-		assertTrue(CliArgs.usage.contains("--catalog <file>"));
-	}
-
-	@Test
-	void usageDocumentsInferredFlag() {
-		assertTrue(CliArgs.usage.contains("--inferred"));
 	}
 
 	private static String debugBuffers(ByteArrayOutputStream outBuf, ByteArrayOutputStream errBuf) {

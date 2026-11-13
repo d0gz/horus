@@ -38,17 +38,6 @@ final class CliArgs {
 	 */
 	final Path outDir;
 
-	final boolean classDiagram;
-
-	final boolean erDiagram;
-
-	final boolean inferred;
-
-	/**
-	 * Null => no entity catalog.
-	 */
-	final Path catalog;
-
 	/**
 	 *
 	 * @param mode
@@ -56,18 +45,9 @@ final class CliArgs {
 	 * @param outDir
 	 */
 	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir) {
-		this(mode, sourceRoots, outDir, true, true, false, null);
-	}
-
-	private CliArgs(Mode mode, Set<Path> sourceRoots, Path outDir, boolean classDiagram, boolean erDiagram,
-			boolean inferred, Path catalog) {
 		this.mode = mode;
 		this.sourceRoots = sourceRoots;
 		this.outDir = outDir;
-		this.classDiagram = classDiagram;
-		this.erDiagram = erDiagram;
-		this.inferred = inferred;
-		this.catalog = catalog;
 	}
 
 	/**
@@ -83,10 +63,6 @@ final class CliArgs {
 		Set<Path> srcRoots = new LinkedHashSet<>();
 
 		Path outDir = null;
-		boolean classDiagram = false;
-		boolean erDiagram = false;
-		boolean inferred = false;
-		Path catalog = null;
 
 		boolean skip = false;
 		for (int i = 0; i < args.length; i++) {
@@ -110,34 +86,12 @@ final class CliArgs {
 			} else if (isOutputDirectory(a)) {
 				skip = true;
 				outDir = parseOutputDirectory(args, outDir, i, a);
-			} else if ("--class".equals(a)) {
-				classDiagram = true;
-			} else if ("--er".equals(a)) {
-				erDiagram = true;
-			} else if ("--inferred".equals(a)) {
-				inferred = true;
-			} else if ("--catalog".equals(a)) {
-				if (catalog != null) {
-					throw new IllegalArgumentException("Duplicate option: --catalog\n\n" + usage);
-				}
-				skip = true;
-				requireValue(args, i, a);
-				catalog = Path.of(args[i + 1]);
 			} else {
 				throw new IllegalArgumentException("Unknown option: " + a + "\n\n" + usage);
 			}
 		}
 
-		if (inferred && !erDiagram) {
-			throw new IllegalArgumentException("Option --inferred requires --er\n\n" + usage);
-		}
-		if (catalog != null && classDiagram && !erDiagram) {
-			throw new IllegalArgumentException("Option --catalog requires the entity diagram\n\n" + usage);
-		}
-		if (!classDiagram && !erDiagram) {
-			return new CliArgs(Mode.RUN, srcRoots, outDir, true, true, false, catalog);
-		}
-		return new CliArgs(Mode.RUN, srcRoots, outDir, classDiagram, erDiagram, inferred, catalog);
+		return new CliArgs(Mode.RUN, srcRoots, outDir);
 	}
 
 	/**
@@ -256,17 +210,7 @@ final class CliArgs {
 			  --source-path <path>, -sourcepath <path>
 			        Specify where to find input source files
 			  -d <directory>
-			        Specify where to place generated diagram files
-			  --class
-			        Generate only the class diagram (class-diagram.puml)
-			  --er
-			        Generate only the entity diagram (entity-diagram.mmd)
-			  --inferred
-			        With --er only: also infer references by ID type (dotted lines, FK);
-			        these are guesses and can be wrong
-			  --catalog <file>
-			        Entity catalog: add or remove entities, attributes and relationships
-			        in the entity diagram (overrules what was found in the code)
+			        Specify where to place generated .puml files
 
 			Defaults:
 
@@ -277,8 +221,6 @@ final class CliArgs {
 
 			  Generation defaults to:
 			      -d docs/diagrams/src/
-
-			  Without --class or --er, both diagrams are generated.
 			""";
 
 	/**

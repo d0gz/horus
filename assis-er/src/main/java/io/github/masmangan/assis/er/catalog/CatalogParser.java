@@ -12,9 +12,8 @@ import io.github.masmangan.assis.er.EntityView;
 import io.github.masmangan.assis.er.types.Cardinality;
 
 /**
- * Catalog text to entries. Each line is in field form (add relationship |
- * Visit | Pet | many-to-one | petId) or Mermaid form (add "Visit" }o--|| "Pet"
- * : "petId").
+ * Catalog text to entries. Each line is in field form, e.g. add relationship |
+ * Visit | Pet | many-to-one | petId.
  */
 final class CatalogParser {
 
@@ -22,7 +21,7 @@ final class CatalogParser {
 	}
 
 	private static final Pattern FIELD_FORM = Pattern.compile("(?i)(relationship|entity|attribute)\\s*\\|.*");
-	private static final Pattern UNKNOWN_KIND = Pattern.compile("([A-Za-z]+)\\s*\\|(?![|o{}]).*");
+	private static final Pattern UNKNOWN_KIND = Pattern.compile("([A-Za-z]+)\\s*\\|.*");
 	private static final Pattern INVALID_TYPE = Pattern.compile("[\"{};\\r\\n]");
 	private static final Map<String, Cardinality> CARDINALITIES = Map.of(
 			"manytoone", Cardinality.MANY_TO_ONE,
@@ -60,25 +59,22 @@ final class CatalogParser {
 			return List.of();
 		}
 		Matcher field = FIELD_FORM.matcher(rest);
-		if (field.matches()) {
-			String kind = field.group(1).toLowerCase(Locale.ROOT);
-			if (operation.equals("remove")) {
-				return one(fieldRemoval(line, kind, rest, warnings));
-			}
-			return switch (kind) {
-				case "relationship" -> one(fieldRelationship(line, rest, warnings));
-				case "entity" -> one(fieldEntity(line, rest, warnings));
-				default -> one(fieldAttribute(line, rest, warnings));
-			};
-		}
-		Matcher unknown = UNKNOWN_KIND.matcher(rest);
-		if (unknown.matches()) {
-			warnings.add("Line " + line + " ignored: unknown kind '" + unknown.group(1) + "'");
+		if (!field.matches()) {
+			Matcher unknown = UNKNOWN_KIND.matcher(rest);
+			warnings.add("Line " + line + " ignored: " + (unknown.matches()
+					? "unknown kind '" + unknown.group(1) + "'"
+					: "expected " + split[0] + " relationship | entity | attribute | ..."));
 			return List.of();
 		}
-		List<CatalogEntry> adds = MermaidLine.looksLikeEntity(rest) ? MermaidLine.entity(line, rest, warnings)
-				: one(MermaidLine.relationship(line, rest, warnings));
-		return operation.equals("remove") ? removals(line, rest.contains("{"), adds, warnings) : adds;
+		String kind = field.group(1).toLowerCase(Locale.ROOT);
+		if (operation.equals("remove")) {
+			return one(fieldRemoval(line, kind, rest, warnings));
+		}
+		return switch (kind) {
+			case "relationship" -> one(fieldRelationship(line, rest, warnings));
+			case "entity" -> one(fieldEntity(line, rest, warnings));
+			default -> one(fieldAttribute(line, rest, warnings));
+		};
 	}
 
 	private static CatalogEntry fieldRelationship(int line, String text, List<String> warnings) {
@@ -183,7 +179,7 @@ final class CatalogParser {
 		return attribute == null ? null : new AddAttribute(line, entity, attribute);
 	}
 
-	static boolean validEntityName(int line, String name, List<String> warnings) {
+	private static boolean validEntityName(int line, String name, List<String> warnings) {
 		if (name.isEmpty() || !EntityMermaidRenderer.isEntityName(name)) {
 			warnings.add("Line " + line + " ignored: invalid entity name '" + name + "'");
 			return false;
@@ -192,7 +188,7 @@ final class CatalogParser {
 	}
 
 	/** Checked attribute, or null with a warning; a trailing ? on the type means nullable. */
-	static EntityView.Attribute attribute(int line, String type, String name, boolean pk, boolean fk,
+	private static EntityView.Attribute attribute(int line, String type, String name, boolean pk, boolean fk,
 			boolean nullable, String column, List<String> warnings) {
 		if (type.endsWith("?")) {
 			type = type.substring(0, type.length() - 1).trim();
@@ -241,24 +237,5 @@ final class CatalogParser {
 			case "attribute" -> new RemoveAttribute(line, fields[1], fields[2]);
 			default -> new RemoveEntity(line, fields[1]);
 		};
-	}
-
-	/** A Mermaid remove line is read as an add line; only the keys are kept. A block removes attributes only. */
-	private static List<CatalogEntry> removals(int line, boolean block, List<CatalogEntry> adds,
-			List<String> warnings) {
-		List<CatalogEntry> removals = new ArrayList<>();
-		for (CatalogEntry add : adds) {
-			if (add instanceof AddRelationship r) {
-				removals.add(new RemoveRelationship(line, r.from(), r.to(), r.label()));
-			} else if (add instanceof AddAttribute a) {
-				removals.add(new RemoveAttribute(line, a.entity(), a.attribute().name()));
-			} else if (add instanceof AddEntity e && !block) {
-				removals.add(new RemoveEntity(line, e.name()));
-			}
-		}
-		if (block && removals.isEmpty() && !adds.isEmpty()) {
-			warnings.add("Line " + line + " ignored: no attribute to remove");
-		}
-		return removals;
 	}
 }

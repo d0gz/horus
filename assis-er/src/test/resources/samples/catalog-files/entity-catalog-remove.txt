@@ -2,5 +2,5 @@
 add entity       | AuditLog
 remove entity    | Pet
 remove attribute | Visit | pastPets
-remove "Visit" { PetId? petId }
+remove attribute | Visit | petId
 remove entity    | Ghost

@@ -98,11 +98,8 @@ class CatalogParserTest {
 	void everyOperationAndKindParses() {
 		// CP8
 		for (String line : List.of("add relationship | Pet | Pet | many-to-one | mother", "add entity | Helper",
-				"add attribute | Owner | String | cache", "add \"Pet\" }o--o| \"Pet\" : \"mother\"",
-				"add \"Helper\"", "add \"Owner\" { String cache }",
-				"remove relationship | Pet | Pet | mother", "remove entity | Helper",
-				"remove attribute | Owner | cache", "remove \"Helper\"",
-				"remove \"Pet\" }o--o| \"Pet\" : \"mother\"", "remove \"Owner\" { String cache }")) {
+				"add attribute | Owner | String | cache", "remove relationship | Pet | Pet | mother",
+				"remove entity | Helper", "remove attribute | Owner | cache")) {
 			CatalogParser.Result result = CatalogParser.parse(line);
 			assertEquals(1, result.entries().size(), line);
 			assertTrue(result.warnings().isEmpty(), line + " " + result.warnings());
@@ -110,68 +107,13 @@ class CatalogParserTest {
 	}
 
 	@Test
-	void mermaidFormEqualsFieldForm() {
-		// CP9
-		String[][] pairs = {
-				{ "add \"Visit\" }o--|| \"Pet\" : \"petId\"", "add relationship | Visit | Pet | many-to-one | petId | required" },
-				{ "add Visit }o--o| Pet : petId", "add relationship | Visit | Pet | many-to-one | petId" },
-				{ "add \"Owner\" ||--o{ \"Pet\" : \"pets\"", "add relationship | Owner | Pet | one-to-many | pets" },
-				{ "add \"User\" ||--|| Profile : \"profile\"", "add relationship | User | Profile | one-to-one | profile | required" },
-				{ "add \"Vet\" }o--o{ \"Specialty\" : specialties", "add relationship | Vet | Specialty | many-to-many | specialties" },
-				{ "add \"Owner\" ||..o{ \"Pet\" : \"pets\"", "add relationship | Owner | Pet | one-to-many | pets | dotted" } };
-		for (String[] pair : pairs) {
-			assertEquals(only(CatalogParser.parse(pair[1])), only(CatalogParser.parse(pair[0])), pair[0]);
-		}
-	}
-
-	@Test
-	void mermaidRightEndGivesRequired() {
-		// CP10
-		assertTrue(only(CatalogParser.parse("add A }o--|| B : x")).required());
-		assertFalse(only(CatalogParser.parse("add A }o--o| B : x")).required());
-		assertTrue(only(CatalogParser.parse("add A ||--|| B : x")).required());
-		assertFalse(only(CatalogParser.parse("add A ||--o| B : x")).required());
-	}
-
-	@Test
 	void dottedFromSymbolOrFlag() {
 		// CP11
-		assertTrue(only(CatalogParser.parse("add A }o..|| B : x")).dotted());
 		assertTrue(only(CatalogParser.parse("add relationship | A | B | many-to-one | x | dotted")).dotted());
 		AddRelationship both = only(
 				CatalogParser.parse("add relationship | A | B | many-to-one | x | required, dotted"));
 		assertTrue(both.required());
 		assertTrue(both.dotted());
-	}
-
-	@Test
-	void unkeptOptionalityIsWarned() {
-		// CP12
-		for (String line : List.of("add A }|--o| B : x", "add A |o--o{ B : x", "add A ||--|{ B : x")) {
-			CatalogParser.Result result = CatalogParser.parse(line);
-			only(result);
-			assertEquals(1, result.warnings().size(), line);
-			assertTrue(result.warnings().get(0).contains("is not kept"), result.warnings().toString());
-		}
-		assertEquals(Cardinality.MANY_TO_ONE, only(CatalogParser.parse("add A }|--o| B : x")).cardinality());
-		assertEquals(Cardinality.ONE_TO_MANY, only(CatalogParser.parse("add A ||--|{ B : x")).cardinality());
-	}
-
-	@Test
-	void skipsInvalidMermaidLines() {
-		// CP13
-		skippedWithWarning("add A }o--> B : x");
-		skippedWithWarning("add A }o--|| B");
-		skippedWithWarning("add A }o--|| B :");
-		skippedWithWarning("add A }o--|| B : x y");
-		skippedWithWarning("add \"\" }o--|| B : x");
-	}
-
-	@Test
-	void acceptsLineCopiedFromDiagram() {
-		// CP14
-		AddRelationship r = only(CatalogParser.parse("add     \"Pet\" }o--o| \"Owner\" : \"owner\""));
-		assertEquals(new AddRelationship(1, "Pet", "Owner", Cardinality.MANY_TO_ONE, "owner", false, false), r);
 	}
 
 	private static EntityView.Attribute attr(String type, String name, boolean pk, boolean fk, boolean nullable,
@@ -252,89 +194,12 @@ class CatalogParserTest {
 	}
 
 	@Test
-	void parsesMermaidEntity() {
-		// CP21
-		assertEquals(List.of(new AddEntity(1, "X", null)), entries("add \"X\""));
-		assertEquals(List.of(new AddEntity(1, "X", null)), entries("add X"));
-		assertEquals(List.of(new AddEntity(1, "X", "x_table")), entries("add \"X\"[\"x_table\"]"));
-		assertEquals(List.of(new AddEntity(1, "X", null)), entries("add \"X\" { }"));
-	}
-
-	@Test
-	void mermaidAttributesEqualFieldForm() {
-		// CP22
-		String[][] pairs = {
-				{ "add \"Visit\" { String? notes }", "add attribute | Visit | String | notes | nullable" },
-				{ "add \"Visit\" { PetId petId FK }", "add attribute | Visit | PetId | petId | fk" },
-				{ "add \"AuditLog\" { Long id PK }", "add attribute | AuditLog | Long | id | pk" },
-				{ "add \"Visit\" { Long id PK, FK }", "add attribute | Visit | Long | id | pk, fk" },
-				{ "add \"Visit\" { Long id pk fk }", "add attribute | Visit | Long | id | pk, fk" } };
-		for (String[] pair : pairs) {
-			assertEquals(entries(pair[1]), entries(pair[0]), pair[0]);
-		}
-		assertEquals(List.of(new AddAttribute(1, "Visit", attr("Long", "id", true, false, false, null)),
-				new AddAttribute(1, "Visit", attr("PetId", "petId", false, true, true, null))),
-				entries("add \"Visit\" { Long id PK; PetId? petId FK; }"));
-	}
-
-	@Test
-	void mermaidAliasAndBlock() {
-		// CP23
-		assertEquals(List.of(new AddEntity(1, "Visit", "visits"),
-				new AddAttribute(1, "Visit", attr("String", "notes", false, false, false, null))),
-				entries("add \"Visit\"[\"visits\"] { String notes }"));
-	}
-
-	@Test
-	void mermaidGenericType() {
-		// CP24
-		assertEquals(List.of(new AddAttribute(1, "Visit", attr("Set~PetId~", "pastPets", false, false, true, null))),
-				entries("add Visit { Set~PetId~? pastPets }"));
-	}
-
-	@Test
-	void mermaidBadAttributeSkippedOthersKept() {
-		// CP25
-		for (String bad : List.of("String", "String a b", "String a \"c\"", "String PK")) {
-			CatalogParser.Result result = CatalogParser.parse("add \"Visit\" { Long id PK; " + bad + "; String? x }");
-			assertEquals(2, result.entries().size(), bad + " " + result.entries());
-			assertEquals(1, result.warnings().size(), bad + " " + result.warnings());
-			assertTrue(result.warnings().get(0).startsWith("Line 1"), result.warnings().toString());
-		}
-	}
-
-	@Test
-	void mermaidMalformedEntitySkipped() {
-		// CP26
-		skippedWithWarning("add \"Visit\" {");
-		skippedWithWarning("add \"Visit\" { String x } extra");
-		skippedWithWarning("add \"Visit\"[\"v\" { String x }");
-		skippedWithWarning("add \"A%\"");
-	}
-
-	@Test
-	void parsesEntityLineCopiedFromDiagram() {
-		// CP27
-		assertEquals(List.of(new AddEntity(1, "AuditLog", "audit_log")),
-				entries("    add \"AuditLog\"[\"audit_log\"]"));
-		assertEquals(List.of(new AddAttribute(1, "Visit", attr("PetId", "petId", false, true, true, null))),
-				entries("add         \"Visit\" { PetId? petId FK }"));
-	}
-
-	@Test
-	void parsesRemovalsInBothForms() {
+	void parsesRemovals() {
 		// CP28
-		String[][] pairs = {
-				{ "remove relationship | Pet | Pet | mother", "remove \"Pet\" }o--o| \"Pet\" : \"mother\"" },
-				{ "Remove Attribute | Owner | cache", "remove \"Owner\" { String? cache }" },
-				{ "REMOVE ENTITY | Helper", "remove Helper" } };
-		CatalogEntry[] expected = { new RemoveRelationship(1, "Pet", "Pet", "mother"),
-				new RemoveAttribute(1, "Owner", "cache"), new RemoveEntity(1, "Helper") };
-		for (int i = 0; i < pairs.length; i++) {
-			assertEquals(List.of(expected[i]), entries(pairs[i][0]), pairs[i][0]);
-			assertEquals(List.of(expected[i]), entries(pairs[i][1]), pairs[i][1]);
-		}
-		assertEquals(List.of(new RemoveEntity(1, "Helper")), entries("    remove \"Helper\"[\"helpers\"]"));
+		assertEquals(List.of(new RemoveRelationship(1, "Pet", "Pet", "mother")),
+				entries("remove relationship | Pet | Pet | mother"));
+		assertEquals(List.of(new RemoveAttribute(1, "Owner", "cache")), entries("Remove Attribute | Owner | cache"));
+		assertEquals(List.of(new RemoveEntity(1, "Helper")), entries("REMOVE ENTITY | Helper"));
 	}
 
 	@Test
@@ -348,17 +213,15 @@ class CatalogParserTest {
 		skippedWithWarning("remove attribute |  | cache");
 		skippedWithWarning("remove entity | ");
 		skippedWithWarning("remove entity | A | B");
-		skippedWithWarning("remove \"Pet\" }o--> \"Pet\" : \"mother\"");
-		skippedWithWarning("remove \"Pet\" }o--o| \"Pet\"");
-		skippedWithWarning("remove \"Owner\" { }");
 	}
 
 	@Test
-	void blockRemovesOnlyAttributes() {
-		// CP30
-		assertEquals(List.of(new RemoveAttribute(1, "Owner", "id"), new RemoveAttribute(1, "Owner", "cache")),
-				entries("remove \"Owner\"[\"owners\"] { Long id PK; String cache }"));
-		CatalogParser.Result bad = CatalogParser.parse("remove \"Owner\"[\"owners\"] { String }");
-		assertTrue(bad.entries().isEmpty(), bad.entries().toString());
+	void mermaidLinesAreSkipped() {
+		for (String line : List.of("add \"Visit\" }o--|| \"Pet\" : \"petId\"", "add A }o--o| B : x", "add \"Helper\"",
+				"add Visit { String notes }", "remove \"Pet\" }o--o| \"Pet\" : \"mother\"", "remove Helper",
+				"remove \"Owner\" { String cache }")) {
+			skippedWithWarning(line);
+		}
 	}
+
 }

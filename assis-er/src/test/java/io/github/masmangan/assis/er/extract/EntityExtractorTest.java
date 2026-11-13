@@ -329,6 +329,21 @@ class EntityExtractorTest {
 		assertEquals(true, nullable.get("photo"));
 	}
 
+	@Test
+	void explicitNullableWinsOverPrimitive() throws Exception {
+		Map<String, Boolean> nullable = extractFrom("samples/primitivenull").entities().get(0).attributes().stream()
+				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::nullable));
+
+		assertEquals(false, nullable.get("id"));
+		assertEquals(false, nullable.get("plain"));
+		assertEquals(true, nullable.get("explicitNull"));
+		assertEquals(true, nullable.get("explicitOptional"));
+		assertEquals(false, nullable.get("boxedNotNull"));
+		assertEquals(true, nullable.get("boxed"));
+		assertEquals(false, nullable.get("validated"));
+		assertEquals(false, nullable.get("validatedWins"));
+	}
+
 	private EntityView naming() throws Exception {
 		return extractFrom("samples/naming");
 	}
