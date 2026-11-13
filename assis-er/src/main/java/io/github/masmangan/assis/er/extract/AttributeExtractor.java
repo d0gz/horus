@@ -23,7 +23,8 @@ final class AttributeExtractor {
 			}
 			boolean pk = Jpa.has(fd, Jpa.ID);
 			boolean nullable = !Jpa.isIdField(fd) && !Jpa.hasFalseMember(fd, Jpa.COLUMN, "nullable")
-					&& !Jpa.hasFalseMember(fd, Jpa.BASIC, "optional");
+					&& !Jpa.hasFalseMember(fd, Jpa.BASIC, "optional")
+					&& (Jpa.hasTrueMember(fd, Jpa.COLUMN, "nullable") || Jpa.hasTrueMember(fd, Jpa.BASIC, "optional"));
 
 			for (VariableDeclarator v : fd.getVariables()) {
 				String ref = TypeRefs.targetOf(v.getType());

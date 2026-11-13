@@ -67,14 +67,26 @@ final class Jpa {
 	}
 
 	static boolean isFalse(AnnotationExpr a, String member) {
-		return a instanceof NormalAnnotationExpr n && n.getPairs().stream()
-				.anyMatch(p -> member.equals(p.getNameAsString()) && p.getValue() instanceof BooleanLiteralExpr b
-						&& !b.getValue());
+		return isLiteral(a, member, false);
 	}
 
 	static boolean hasFalseMember(FieldDeclaration fd, String annotation, String member) {
+		return hasLiteralMember(fd, annotation, member, false);
+	}
+
+	static boolean hasTrueMember(FieldDeclaration fd, String annotation, String member) {
+		return hasLiteralMember(fd, annotation, member, true);
+	}
+
+	private static boolean isLiteral(AnnotationExpr a, String member, boolean value) {
+		return a instanceof NormalAnnotationExpr n && n.getPairs().stream()
+				.anyMatch(p -> member.equals(p.getNameAsString()) && p.getValue() instanceof BooleanLiteralExpr b
+						&& b.getValue() == value);
+	}
+
+	private static boolean hasLiteralMember(FieldDeclaration fd, String annotation, String member, boolean value) {
 		return fd.getAnnotations().stream()
-				.anyMatch(a -> annotation.equals(a.getName().getIdentifier()) && isFalse(a, member));
+				.anyMatch(a -> annotation.equals(a.getName().getIdentifier()) && isLiteral(a, member, value));
 	}
 
 	/**

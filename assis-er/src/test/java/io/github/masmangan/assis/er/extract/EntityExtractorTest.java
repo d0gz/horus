@@ -319,14 +319,14 @@ class EntityExtractorTest {
 	}
 
 	@Test
-	void primitivesAreNeverNullable() throws Exception {
+	void unannotatedFieldsAreNotNullable() throws Exception {
 		Map<String, Boolean> nullable = ownerAttributes().stream()
 				.collect(Collectors.toMap(EntityView.Attribute::name, EntityView.Attribute::nullable));
 
 		assertEquals(false, nullable.get("a"));
 		assertEquals(false, nullable.get("b"));
-		assertEquals(true, nullable.get("name"));
-		assertEquals(true, nullable.get("photo"));
+		assertEquals(false, nullable.get("name"));
+		assertEquals(false, nullable.get("photo"));
 	}
 
 	private EntityView naming() throws Exception {
