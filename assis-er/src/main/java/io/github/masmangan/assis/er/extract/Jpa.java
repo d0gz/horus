@@ -26,6 +26,7 @@ final class Jpa {
 	static final String BASIC = "Basic";
 	static final String ID = "Id";
 	static final String TRANSIENT = "Transient";
+	static final String NOT_NULL = "NotNull";
 	static final Set<String> ID_ANNOTATIONS = Set.of(ID, "EmbeddedId");
 	static final Map<String, Cardinality> RELATIONSHIPS = Map.of(
 			"ManyToOne", Cardinality.MANY_TO_ONE,

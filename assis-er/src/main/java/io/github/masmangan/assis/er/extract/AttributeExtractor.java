@@ -22,9 +22,11 @@ final class AttributeExtractor {
 				continue;
 			}
 			boolean pk = Jpa.has(fd, Jpa.ID);
-			boolean nullable = !Jpa.isIdField(fd) && !Jpa.hasFalseMember(fd, Jpa.COLUMN, "nullable")
-					&& !Jpa.hasFalseMember(fd, Jpa.BASIC, "optional")
-					&& (Jpa.hasTrueMember(fd, Jpa.COLUMN, "nullable") || Jpa.hasTrueMember(fd, Jpa.BASIC, "optional"));
+			boolean notNull = Jpa.isIdField(fd) || Jpa.has(fd, Jpa.NOT_NULL) || Jpa.hasFalseMember(fd, Jpa.COLUMN, "nullable")
+					|| Jpa.hasFalseMember(fd, Jpa.BASIC, "optional");
+					
+			boolean explicitNull = Jpa.hasTrueMember(fd, Jpa.COLUMN, "nullable")
+					|| Jpa.hasTrueMember(fd, Jpa.BASIC, "optional");
 
 			for (VariableDeclarator v : fd.getVariables()) {
 				String ref = TypeRefs.targetOf(v.getType());
@@ -32,7 +34,7 @@ final class AttributeExtractor {
 						&& !entity.isOwnId(ref);
 
 				attributes.add(new EntityView.Attribute(v.getType().asString(), v.getNameAsString(), pk, fk,
-						nullable && !v.getType().isPrimitiveType(),
+						!notNull && (explicitNull || !v.getType().isPrimitiveType()),
 						Jpa.nameIfDifferent(fd, Jpa.COLUMN, v.getNameAsString())));
 			}
 		}

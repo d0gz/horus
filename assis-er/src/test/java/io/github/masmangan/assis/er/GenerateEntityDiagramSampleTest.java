@@ -58,13 +58,13 @@ class GenerateEntityDiagramSampleTest {
 				erDiagram
 				    "Owner" {
 				        Long id PK
-				        String name
+				        String? name
 				        int a
 				        int b
-				        List~String~ tags
-				        Map~String,List~Integer~~ scores
-				        LocalDate birth
-				        byte[] photo
+				        List~String~? tags
+				        Map~String,List~Integer~~? scores
+				        LocalDate? birth
+				        byte[]? photo
 				    }
 				    "Owner" }o--o| "Owner" : "parent"
 				""";
@@ -125,14 +125,14 @@ class GenerateEntityDiagramSampleTest {
 				    "Owner"["owners"] {
 				        Long id PK
 				        %% fullName
-				        String full_name
+				        String? full_name
 				        %% email
 				        String e_mail
 				        String phone
-				        String city
+				        String? city
 				        %% column: home address
-				        String address
-				        String note
+				        String? address
+				        String? note
 				    }
 				    "Pet" {
 				        %% id
@@ -144,7 +144,7 @@ class GenerateEntityDiagramSampleTest {
 				    }
 				    "Tag" {
 				        Long id PK
-				        String label
+				        String? label
 				    }
 				    "Vet" {
 				        Long id PK
@@ -215,7 +215,7 @@ class GenerateEntityDiagramSampleTest {
 	void appliesCatalogToSample() throws Exception {
 		// CG1
 		String expected = EntityMermaidRenderer.HIDDEN_INFERRED_NOTE + "\n" + CATALOG_ENTITIES
-				+ "    \"Visit\" {\n        Long id PK\n        PetId petId\n        Set~PetId~ pastPets\n    }\n"
+				+ "    \"Visit\" {\n        Long id PK\n        PetId? petId\n        Set~PetId~? pastPets\n    }\n"
 				+ "\n"
 				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
 				+ "    \"Visit\" }o--|| \"Pet\" : \"petId\"\n"
@@ -227,7 +227,7 @@ class GenerateEntityDiagramSampleTest {
 	void catalogComesBeforeInferredBlock() throws Exception {
 		// CG2
 		String expected = CATALOG_ENTITIES
-				+ "    \"Visit\" {\n        Long id PK\n        PetId petId FK\n        Set~PetId~ pastPets\n    }\n"
+				+ "    \"Visit\" {\n        Long id PK\n        PetId? petId FK\n        Set~PetId~? pastPets\n    }\n"
 				+ "\n"
 				+ "    %% " + EntityMermaidRenderer.CATALOG_NOTE + "\n"
 				+ "    \"Visit\" }o--|| \"Pet\" : \"petId\"\n"
@@ -252,7 +252,7 @@ class GenerateEntityDiagramSampleTest {
 			+ "    \"Owner\" {\n        Long id PK\n    }\n"
 			+ "    " + FROM_CATALOG + "    \"Pet\"[\"pets\"]\n"
 			+ "    \"Visit\" {\n        Long id PK\n        " + FROM_CATALOG + "        PetId petId FK\n"
-			+ "        Set~PetId~ pastPets\n        " + FROM_CATALOG + "        String? notes\n    }\n"
+			+ "        Set~PetId~? pastPets\n        " + FROM_CATALOG + "        String? notes\n    }\n"
 			+ "    " + FROM_CATALOG + "    \"AuditLog\"[\"audit_log\"] {\n        " + FROM_CATALOG
 			+ "        Long id PK\n    }\n"
 			+ "    \"Pet\" }o--o| \"Owner\" : \"owner\"\n"
