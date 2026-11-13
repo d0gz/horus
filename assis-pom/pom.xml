@@ -59,7 +59,9 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
             </plugin>
 
-            <!-- Self-contained runnable JAR: target/assis-pom-<version>.jar -->
+            <!-- JAR executavel autossuficiente: target/assis-pom-<version>-all.jar.
+                 Fica anexado com classificador para que o artefato principal continue
+                 sendo o jar comum, consumido como dependencia pelo horus-cli. -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -71,6 +73,9 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>all</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer
                                     implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">

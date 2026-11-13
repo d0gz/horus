@@ -17,6 +17,7 @@
 		<module>assis-cli</module>
 		<module>assis-pom</module>
 		<module>assis-er</module>
+		<module>horus-cli</module>
 
 	</modules>
 
@@ -54,7 +55,7 @@
 
 		<!-- If you keep per-module reports, list them all (comma-separated). -->
 		<sonar.coverage.jacoco.xmlReportPaths>
-			assis-core/target/site/jacoco/jacoco.xml,assis-cli/target/site/jacoco/jacoco.xml
+			assis-core/target/site/jacoco/jacoco.xml,assis-cli/target/site/jacoco/jacoco.xml,horus-cli/target/site/jacoco/jacoco.xml
 		</sonar.coverage.jacoco.xmlReportPaths>
 	</properties>
 
