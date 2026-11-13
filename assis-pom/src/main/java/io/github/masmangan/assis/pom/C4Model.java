@@ -22,7 +22,9 @@ import java.util.Optional;
 public final class C4Model {
 
     public enum Tipo {
-        PESSOA, APLICACAO, BANCO, MENSAGERIA, SISTEMA_EXTERNO
+        PESSOA, APLICACAO, BANCO, MENSAGERIA, SISTEMA_EXTERNO,
+        /** Interface servida ao navegador (SPA), conteiner dentro da fronteira. */
+        INTERFACE
     }
 
     public enum Fonte {
@@ -57,17 +59,43 @@ public final class C4Model {
                           String descricao, Procedencia procedencia, Evidencia evidencia) {
     }
 
+    /**
+     * Dependencia de execucao que nenhuma regra de arquetipo reconhece e que pode
+     * ser um conteiner. regraGenerica e o padrao da regra de familia que a
+     * classificou, ou null; modulos traz os modulos do reator que a declaram, na
+     * ordem do reator (vazio num projeto isolado).
+     */
+    public record DependenciaNaoIdentificada(String coordenada, String categoria,
+                                             String regraGenerica, List<String> modulos) {
+    }
+
+    /**
+     * Registro de uma linha do catalogo do C2 (incremento C): algo que ela removeu,
+     * ou o motivo de ter sido ignorada. linha e o numero da linha no arquivo, que
+     * define a ordem de saida.
+     */
+    public record ItemDoCatalogo(int linha, String texto) {
+    }
+
     private final String nomeDoSistema;
     private final Map<String, Elemento> elementos;
     private final List<Relacao> relacoes;
     private final List<String> notas;
+    private final List<DependenciaNaoIdentificada> naoIdentificadas;
+    private final List<ItemDoCatalogo> removidos;
+    private final List<ItemDoCatalogo> ignoradas;
 
     private C4Model(String nomeDoSistema, Map<String, Elemento> elementos,
-                    List<Relacao> relacoes, List<String> notas) {
+                    List<Relacao> relacoes, List<String> notas,
+                    List<DependenciaNaoIdentificada> naoIdentificadas,
+                    List<ItemDoCatalogo> removidos, List<ItemDoCatalogo> ignoradas) {
         this.nomeDoSistema = nomeDoSistema;
         this.elementos = elementos;
         this.relacoes = relacoes;
         this.notas = notas;
+        this.naoIdentificadas = naoIdentificadas;
+        this.removidos = removidos;
+        this.ignoradas = ignoradas;
     }
 
     public static Builder comNome(String nomeDoSistema) {
@@ -94,6 +122,21 @@ public final class C4Model {
     /** O que a ferramenta sabe que nao consegue derivar a partir das fontes lidas. */
     public List<String> notas() {
         return List.copyOf(notas);
+    }
+
+    /** Dependencias sem regra que podem ser conteineres (incremento B), na ordem em que apareceram. */
+    public List<DependenciaNaoIdentificada> naoIdentificadas() {
+        return naoIdentificadas;
+    }
+
+    /** O que o catalogo do usuario removeu (incremento C), na ordem de registro. */
+    public List<ItemDoCatalogo> removidos() {
+        return removidos;
+    }
+
+    /** Linhas do catalogo que nao puderam ser aplicadas, com o motivo (incremento C). */
+    public List<ItemDoCatalogo> ignoradas() {
+        return ignoradas;
     }
 
     public Optional<Elemento> porId(String id) {
@@ -124,6 +167,10 @@ public final class C4Model {
         private final Map<String, Elemento> elementos = new LinkedHashMap<>();
         private final List<Relacao> relacoes = new ArrayList<>();
         private final List<String> notas = new ArrayList<>();
+        /** coordenada -> modulos que a declaram; a ordem e a da primeira aparicao. */
+        private final Map<String, DependenciaNaoIdentificada> naoIdentificadas = new LinkedHashMap<>();
+        private final List<ItemDoCatalogo> removidos = new ArrayList<>();
+        private final List<ItemDoCatalogo> ignoradas = new ArrayList<>();
 
         private Builder(String nomeDoSistema) {
             this.nomeDoSistema = nomeDoSistema;
@@ -139,9 +186,91 @@ public final class C4Model {
             return this;
         }
 
+        /**
+         * Troca o destino das relacoes origem -> destinoAntigo, mantendo a posicao
+         * de cada uma na lista para que a ordem de saida continue a mesma.
+         */
+        Builder redirecionar(String origem, String destinoAntigo, String destinoNovo) {
+            for (int i = 0; i < relacoes.size(); i++) {
+                Relacao r = relacoes.get(i);
+                if (r.origem().equals(origem) && r.destino().equals(destinoAntigo)) {
+                    relacoes.set(i, new Relacao(r.origem(), destinoNovo, r.tecnologia(),
+                            r.descricao(), r.procedencia(), r.evidencia()));
+                }
+            }
+            return this;
+        }
+
         public Builder nota(String texto) {
             if (!notas.contains(texto)) {
                 notas.add(texto);
+            }
+            return this;
+        }
+
+        /**
+         * Registra uma dependencia sem regra. A mesma coordenada vinda de outro
+         * modulo nao cria outra entrada: acrescenta o modulo (null num projeto isolado).
+         */
+        public Builder naoIdentificada(String coordenada, String categoria,
+                                       String regraGenerica, String modulo) {
+            DependenciaNaoIdentificada atual = naoIdentificadas.get(coordenada);
+            List<String> modulos = new ArrayList<>(atual == null ? List.of() : atual.modulos());
+            if (modulo != null && !modulos.contains(modulo)) {
+                modulos.add(modulo);
+            }
+            naoIdentificadas.put(coordenada, new DependenciaNaoIdentificada(coordenada,
+                    atual == null ? categoria : atual.categoria(),
+                    atual == null ? regraGenerica : atual.regraGenerica(),
+                    List.copyOf(modulos)));
+            return this;
+        }
+
+        /** Copia um modelo pronto, para que o catalogo o altere sem tocar no original. */
+        static Builder de(C4Model m) {
+            Builder b = new Builder(m.nomeDoSistema);
+            b.elementos.putAll(m.elementos);
+            b.relacoes.addAll(m.relacoes);
+            b.notas.addAll(m.notas);
+            m.naoIdentificadas.forEach(n -> b.naoIdentificadas.put(n.coordenada(), n));
+            b.removidos.addAll(m.removidos);
+            b.ignoradas.addAll(m.ignoradas);
+            return b;
+        }
+
+        /** Coloca o elemento, substituindo o de mesmo id (o catalogo vence a ferramenta). */
+        Builder substituir(Elemento e) {
+            elementos.put(e.id(), e);
+            return this;
+        }
+
+        /** Remove o elemento e todas as relacoes em que ele aparece; devolve quantas relacoes sairam. */
+        int removerElemento(String id) {
+            elementos.remove(id);
+            int antes = relacoes.size();
+            relacoes.removeIf(r -> r.origem().equals(id) || r.destino().equals(id));
+            return antes - relacoes.size();
+        }
+
+        /** Remove todas as relacoes origem -> destino; devolve quantas sairam. */
+        int removerRelacoes(String origem, String destino) {
+            int antes = relacoes.size();
+            relacoes.removeIf(r -> r.origem().equals(origem) && r.destino().equals(destino));
+            return antes - relacoes.size();
+        }
+
+        /** Registra uma remocao feita pelo catalogo; o mesmo registro vindo de outro modulo nao se repete. */
+        public Builder removido(ItemDoCatalogo item) {
+            if (!removidos.contains(item)) {
+                removidos.add(item);
+            }
+            return this;
+        }
+
+        /** Registra uma linha do catalogo que nao pode ser aplicada. */
+        public Builder ignorada(ItemDoCatalogo item) {
+            if (!ignoradas.contains(item)) {
+                ignoradas.add(item);
             }
             return this;
         }
@@ -179,7 +308,9 @@ public final class C4Model {
 
         public C4Model construir() {
             return new C4Model(nomeDoSistema, new LinkedHashMap<>(elementos),
-                    List.copyOf(relacoes), List.copyOf(notas));
+                    List.copyOf(relacoes), List.copyOf(notas),
+                    List.copyOf(naoIdentificadas.values()),
+                    List.copyOf(removidos), List.copyOf(ignoradas));
         }
     }
 }

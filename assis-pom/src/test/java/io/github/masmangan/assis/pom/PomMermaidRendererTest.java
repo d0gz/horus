@@ -242,4 +242,19 @@ class PomMermaidRendererTest {
         assertTrue(m.contains("#quot;ola#quot;"));
     }
 
+    // ------------------------------------------------------- catalogo (incremento C)
+
+    @Test
+    @DisplayName("remove dependency no diagrama completo tira a dependencia e registra no fim")
+    void removeDependencyNoCompleto() throws Exception {
+        Model model = PomDependencyExtractor.readPom(new StringReader(POM_FDS));
+        String m = PomMermaidRenderer.render(PomView.de(model), CategoryTable.padrao(),
+                java.util.Map.of("org.projectlombok:lombok", 2));
+
+        assertFalse(m.contains("[\"org.projectlombok:lombok"), m);
+        assertTrue(m.contains("gerencia 1 de 1 versoes"), m);
+        int secao = m.indexOf("%% ---- Removidos pelo catalogo ----");
+        int item = m.indexOf("%%   dependencia org.projectlombok:lombok (linha 2)");
+        assertTrue(secao >= 0 && secao < item, m);
+    }
 }
