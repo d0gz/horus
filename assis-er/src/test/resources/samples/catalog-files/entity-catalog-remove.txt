@@ -1,0 +1,6 @@
+# ERC-REMOVE catalog for samples/catalog
+add entity       | AuditLog
+remove entity    | Pet
+remove attribute | Visit | pastPets
+remove attribute | Visit | petId
+remove entity    | Ghost

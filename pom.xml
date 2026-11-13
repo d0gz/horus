@@ -16,6 +16,7 @@
 		<module>assis-by-example</module>
 		<module>assis-cli</module>
 		<module>assis-pom</module>
+		<module>assis-er</module>
 
 	</modules>
 

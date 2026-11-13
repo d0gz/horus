@@ -36,3 +36,9 @@ replay_pid*
 
 # OS
 .DS_Store
+
+# Claude Code / graphify local files
+.claude/
+CLAUDE.md
+graphify-out/
+docs/plans/
