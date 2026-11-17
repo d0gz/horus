@@ -27,13 +27,22 @@ class ArchetypeRulesTest {
               ],
               "regras": [
                 { "groupId": "org.springframework.boot", "artifactIdPrefixo": "spring-boot-starter-web",
-                  "categoria": "web" }
+                  "categoria": "web" },
+                { "groupId": "com.squareup.okhttp3", "categoria": "web" },
+                { "groupId": "org.springframework.boot", "artifactId": "spring-boot-starter-validation",
+                  "categoria": "web" },
+                { "groupId": "org.projectlombok", "artifactId": "lombok", "categoria": "utilitario" },
+                { "groupIdPrefixo": "org.springframework", "categoria": "utilitario", "generica": true }
               ]
             }
             """;
 
     /** Monta um pom com as dependencias informadas no formato grupo:artefato:escopo. */
     private C4Model modelo(String... deps) throws Exception {
+        return modelo(java.util.Map.of(), deps);
+    }
+
+    private C4Model modelo(java.util.Map<String, Integer> removidas, String... deps) throws Exception {
         StringBuilder sb = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <project xmlns="http://maven.apache.org/POM/4.0.0">
@@ -62,7 +71,7 @@ class ArchetypeRulesTest {
         sb.append("  </dependencies>\n</project>\n");
 
         PomView pom = PomView.de(PomDependencyExtractor.readPom(new StringReader(sb.toString())));
-        return ArchetypeRules.aplicar(pom, CategoryTable.deTexto(TABELA));
+        return ArchetypeRules.aplicar(pom, CategoryTable.deTexto(TABELA), removidas);
     }
 
     private List<String> nomes(C4Model m, Tipo tipo) {
@@ -354,4 +363,132 @@ class ArchetypeRulesTest {
         assertEquals(4, m.elementos().size());
     }
 
+    // ------------------------------------------------------- R19 gateway
+
+    @Test
+    @DisplayName("R19: starter do gateway produz o ator e a nota de rotas nao declaradas")
+    void gatewayProduzAtorENota() throws Exception {
+        C4Model m = modelo("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux");
+
+        assertTrue(temRelacao(m, "pessoa", "app", "HTTPS"));
+        assertTrue(m.notas().stream().anyMatch(n -> n.contains("gateway")
+                && n.contains("rotas nao sao declaradas no pom")));
+    }
+
+    // ------------------------------------------------------- R20 interface web
+
+    @Test
+    @DisplayName("R20: webjar angularjs produz a interface web dentro da fronteira")
+    void webjarAngularjsProduzInterface() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:angularjs");
+
+        C4Model.Elemento ui = m.porId("ui").orElseThrow();
+        assertEquals(Tipo.INTERFACE, ui.tipo());
+        assertEquals("AngularJS", ui.tecnologia());
+        assertFalse(ui.foraDaFronteira());
+    }
+
+    @Test
+    @DisplayName("R20: com interface, o ator usa a interface e a interface chama a aplicacao")
+    void atorUsaInterfaceQueChamaAplicacao() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:angularjs");
+
+        assertTrue(temRelacao(m, "pessoa", "ui", "HTTPS"));
+        assertTrue(temRelacao(m, "ui", "app", "JSON/HTTP"));
+        assertFalse(m.relacoes().stream().anyMatch(r ->
+                r.origem().equals("pessoa") && r.destino().equals("app")));
+    }
+
+    @Test
+    @DisplayName("R20: webjar de apoio (bootstrap) nao produz interface")
+    void webjarDeApoioNaoProduzInterface() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-web",
+                "org.webjars:bootstrap");
+
+        assertFalse(m.temTipo(Tipo.INTERFACE));
+    }
+
+    // ------------------------------------------------------- R2 mais estreito
+
+    @Test
+    @DisplayName("R2: cliente HTTP da categoria web (okhttp3) nao cria o ator e vira nota")
+    void okhttpNaoCriaAtor() throws Exception {
+        C4Model m = modelo("com.squareup.okhttp3:okhttp");
+
+        assertFalse(m.temTipo(Tipo.PESSOA));
+        assertTrue(m.notas().stream().anyMatch(n -> n.contains("com.squareup.okhttp3:okhttp")
+                && n.contains("nao sao declarados no Maven")));
+    }
+
+    @Test
+    @DisplayName("R2: validacao da categoria web nao cria o ator")
+    void validacaoNaoCriaAtor() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-validation");
+
+        assertFalse(m.temTipo(Tipo.PESSOA));
+        assertEquals(1, m.elementos().size());
+    }
+
+    // ------------------------------------------------------- nao identificadas (incremento B)
+
+    @Test
+    @DisplayName("dependencia desconhecida sem regra e registrada como nao identificada")
+    void desconhecidaEhRegistrada() throws Exception {
+        C4Model m = modelo("com.empresa:biblioteca-propria");
+
+        assertEquals(1, m.naoIdentificadas().size());
+        C4Model.DependenciaNaoIdentificada d = m.naoIdentificadas().get(0);
+        assertEquals("com.empresa:biblioteca-propria", d.coordenada());
+        assertEquals("nao-classificada", d.categoria());
+        assertTrue(d.regraGenerica() == null);
+    }
+
+    @Test
+    @DisplayName("dependencia conhecida irrelevante (lombok em compile) nao e registrada")
+    void lombokNaoEhRegistrado() throws Exception {
+        assertTrue(modelo("org.projectlombok:lombok").naoIdentificadas().isEmpty());
+    }
+
+    @Test
+    @DisplayName("dependencia de regra generica e registrada com o padrao da regra")
+    void genericaEhRegistradaComPadrao() throws Exception {
+        C4Model m = modelo("org.springframework.boot:spring-boot-starter-cache");
+
+        C4Model.DependenciaNaoIdentificada d = m.naoIdentificadas().get(0);
+        assertEquals("utilitario", d.categoria());
+        assertEquals("org.springframework*", d.regraGenerica());
+    }
+
+    @Test
+    @DisplayName("dependencia que produz elemento nao e registrada")
+    void dependenciaComRegraNaoEhRegistrada() throws Exception {
+        assertTrue(modelo("org.postgresql:postgresql",
+                "org.springframework.boot:spring-boot-starter-data-jpa").naoIdentificadas().isEmpty());
+    }
+
+    // ------------------------------------------------------- remove dependency (incremento C)
+
+    @Test
+    @DisplayName("remove dependency: a dependencia nao entra nas regras nem nas nao identificadas, e fica nos removidos")
+    void removeDependencyTiraDasRegras() throws Exception {
+        C4Model m = modelo(java.util.Map.of("org.postgresql:postgresql", 3, "com.empresa:lib", 4),
+                "org.postgresql:postgresql", "com.empresa:lib");
+
+        assertFalse(m.temTipo(Tipo.BANCO));
+        assertTrue(m.naoIdentificadas().isEmpty());
+        assertEquals(List.of("dependencia org.postgresql:postgresql (linha 3)", "dependencia com.empresa:lib (linha 4)"),
+                m.removidos().stream().map(C4Model.ItemDoCatalogo::texto).toList());
+    }
+
+    @Test
+    @DisplayName("remove dependency de coordenada que nao esta no pom vira aviso")
+    void removeDependencyForaDoPomViraAviso() throws Exception {
+        C4Model m = modelo(java.util.Map.of("org.jolokia:jolokia-core", 2), "org.postgresql:postgresql");
+
+        assertTrue(m.temTipo(Tipo.BANCO));
+        assertTrue(m.ignoradas().stream().anyMatch(i -> i.linha() == 2
+                && i.texto().contains("'org.jolokia:jolokia-core' nao esta no pom")), m.ignoradas().toString());
+    }
 }

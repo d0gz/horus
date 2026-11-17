@@ -238,4 +238,50 @@ class CatalogResolverTest {
         assertTrue(m.contains("classDef cor_dominio fill:#e0f2fe"));
         assertFalse(m.contains("grp_nao_classificada"));
     }
+
+    // ------------------------------------------------------- regra generica (incremento B)
+
+    @Test
+    @DisplayName("dependencia classificada pelo catalogo nao e de regra generica")
+    void catalogoNaoEhRegraGenerica() {
+        CategoryTable comGenerica = CategoryTable.deTexto("""
+                { "schemaVersion": 1, "padrao": "nao-classificada", "categorias": [],
+                  "regras": [ { "groupIdPrefixo": "org.springframework", "categoria": "utilitario",
+                                "generica": true } ] }
+                """);
+        CatalogResolver c = CatalogResolver.deTexto(comGenerica,
+                "org.springframework.boot:spring-boot-starter-cache | infraestrutura");
+
+        assertTrue(c.regraGenericaDe("org.springframework.boot", "spring-boot-starter-cache").isEmpty());
+        assertEquals(java.util.Optional.of("org.springframework*"),
+                c.regraGenericaDe("org.springframework.boot", "spring-boot-starter"));
+    }
+
+    // ------------------------------------------------------- catalogo do C2 (incremento C)
+
+    @Test
+    @DisplayName("describe dependency classifica como a linha antiga")
+    void describeDependencyClassificaComoLinhaAntiga() {
+        CatalogResolver c = catalogo(
+                "describe dependency | com.exemplo:lib | teste | #abcdef | Biblioteca interna");
+
+        assertEquals("teste", c.categoriaDe("com.exemplo", "lib"));
+        assertEquals(java.util.Optional.of("Biblioteca interna"), c.descricaoDe("com.exemplo", "lib"));
+        assertTrue(c.avisos().isEmpty());
+    }
+
+    @Test
+    @DisplayName("linhas de conteiner e relacao nao geram aviso no classificador")
+    void linhasDoC2NaoGeramAvisoNoClassificador() {
+        CatalogResolver c = catalogo("""
+                remove dependency   | org.jolokia:jolokia-core
+                add container       | ext_x | X | HTTP | Algo
+                add relationship    | app | ext_x | HTTP | Usa
+                remove container    | ext_y
+                remove relationship | pessoa | app
+                """);
+
+        assertTrue(c.avisos().isEmpty(), c.avisos().toString());
+        assertEquals(0, c.tamanho());
+    }
 }

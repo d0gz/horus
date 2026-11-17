@@ -1,5 +1,7 @@
 package io.github.masmangan.assis.pom;
 
+import java.util.Optional;
+
 /**
  * Resolve a categoria arquitetural de uma dependencia Maven.
  *
@@ -29,4 +31,14 @@ public interface CategoryResolver {
 
     /** Cores da categoria. Devolve uma cor neutra se desconhecida. */
     CategoryTable.Cor corDe(String categoria);
+
+    /**
+     * Padrao da regra generica (de familia) que classificou a dependencia, como
+     * "org.springframework*", ou vazio quando a classificacao nao veio de uma.
+     * Uma regra generica e um palpite pela familia, nao a classificacao da
+     * biblioteca; o C2 avisa o usuario disso.
+     */
+    default Optional<String> regraGenericaDe(String groupId, String artifactId) {
+        return Optional.empty();
+    }
 }

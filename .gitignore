@@ -41,4 +41,7 @@ replay_pid*
 .claude/
 CLAUDE.md
 graphify-out/
+
+catalogo.txt
+*.txt
 docs/plans/

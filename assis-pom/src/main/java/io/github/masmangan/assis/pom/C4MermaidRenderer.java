@@ -4,6 +4,8 @@ import io.github.masmangan.assis.pom.C4Model.Elemento;
 import io.github.masmangan.assis.pom.C4Model.Procedencia;
 import io.github.masmangan.assis.pom.C4Model.Relacao;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -45,31 +47,36 @@ public final class C4MermaidRenderer {
                 .filter(e -> !e.foraDaFronteira()).toList();
 
         // Atores e sistemas de terceiros nao pertencem ao sistema analisado.
-        for (Elemento e : fora) {
-            sb.append(IDENT).append(no(e)).append('\n');
-        }
+        // Em cada bloco, o que veio do catalogo sai depois do derivado (D46).
+        emitirElementos(sb, fora, IDENT);
 
         if (!dentro.isEmpty()) {
             sb.append('\n').append(IDENT).append("subgraph sys[\"")
                     .append(esc(modelo.nomeDoSistema())).append("\"]\n");
-            for (Elemento e : dentro) {
-                sb.append(IDENT_INTERNO).append(no(e)).append('\n');
-            }
+            emitirElementos(sb, dentro, IDENT_INTERNO);
             sb.append(IDENT).append("end\n");
         }
 
         if (!modelo.relacoes().isEmpty()) {
             sb.append('\n');
-            for (Relacao r : modelo.relacoes()) {
-                sb.append(IDENT).append(r.origem()).append(" -->|\"")
-                        .append(rotuloDeRelacao(r)).append("\"| ")
-                        .append(r.destino()).append('\n');
+            List<Relacao> derivadas = modelo.relacoes().stream()
+                    .filter(r -> r.procedencia() != Procedencia.DECLARADO).toList();
+            List<Relacao> declaradas = modelo.relacoes().stream()
+                    .filter(r -> r.procedencia() == Procedencia.DECLARADO).toList();
+            derivadas.forEach(r -> emitirRelacao(sb, r));
+            if (!declaradas.isEmpty()) {
+                sb.append(IDENT).append("%% Relacoes abaixo vem do catalogo\n");
+                declaradas.forEach(r -> emitirRelacao(sb, r));
             }
         }
 
         sb.append('\n');
         sb.append(IDENT).append("classDef pessoa fill:#08427b,stroke:#052e56,color:#ffffff\n");
         sb.append(IDENT).append("classDef aplicacao fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
+        // So quando ha interface, para nao alterar os diagramas que nao tem uma.
+        if (modelo.temTipo(C4Model.Tipo.INTERFACE)) {
+            sb.append(IDENT).append("classDef interface fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
+        }
         sb.append(IDENT).append("classDef banco fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
         sb.append(IDENT).append("classDef mensageria fill:#1168bd,stroke:#0b4884,color:#ffffff\n");
         sb.append(IDENT).append("classDef externo fill:#8c8c8c,stroke:#5e5e5e,color:#ffffff\n");
@@ -89,6 +96,108 @@ public final class C4MermaidRenderer {
             }
         }
 
+        // Incremento B: o que o usuario precisa para escrever o catalogo. So texto;
+        // nao altera o desenho acima.
+        List<String> comentarios = comentarios(modelo);
+        if (!comentarios.isEmpty()) {
+            sb.append('\n');
+            for (String linha : comentarios) {
+                sb.append(IDENT).append("%% ").append(linha).append('\n');
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private static void emitirElementos(StringBuilder sb, List<Elemento> elementos, String ident) {
+        List<Elemento> declarados = elementos.stream()
+                .filter(e -> e.procedencia() == Procedencia.DECLARADO).toList();
+        for (Elemento e : elementos) {
+            if (e.procedencia() != Procedencia.DECLARADO) {
+                sb.append(ident).append(no(e)).append('\n');
+            }
+        }
+        if (!declarados.isEmpty()) {
+            sb.append(ident).append("%% Conteineres abaixo vem do catalogo\n");
+            declarados.forEach(e -> sb.append(ident).append(no(e)).append('\n'));
+        }
+    }
+
+    private static void emitirRelacao(StringBuilder sb, Relacao r) {
+        // Relacao nao confirmada: seta tracejada e marcador no texto (D13).
+        String seta = r.procedencia() == Procedencia.NAO_CONFIRMAVEL ? " -.->|\"" : " -->|\"";
+        sb.append(IDENT).append(r.origem()).append(seta)
+                .append(rotuloDeRelacao(r)).append("\"| ")
+                .append(r.destino()).append('\n');
+    }
+
+    // -----------------------------------------------------------------
+    // Comentarios do fim do arquivo (incremento B)
+    // -----------------------------------------------------------------
+
+    static final String TITULO_CONTEINERES = "---- Conteineres deste diagrama (use estes ids no catalogo) ----";
+    static final String TITULO_NAO_IDENTIFICADAS = "---- Dependencias nao identificadas (podem ser conteineres) ----";
+    static final String TITULO_REMOVIDOS = "---- Removidos pelo catalogo ----";
+    static final String TITULO_IGNORADAS = "---- Linhas do catalogo ignoradas ----";
+
+    /** Ordena pela linha do catalogo; a ordenacao e estavel, entao empates mantem a ordem de registro. */
+    static List<C4Model.ItemDoCatalogo> porLinha(List<C4Model.ItemDoCatalogo> itens) {
+        return itens.stream().sorted(Comparator.comparingInt(C4Model.ItemDoCatalogo::linha)).toList();
+    }
+
+    /**
+     * Linhas das secoes de comentario, sem o prefixo "%% ", na ordem fixa das
+     * secoes; secao vazia nao gera linha alguma. Dentro de cada secao, ordem
+     * alfabetica, para que a saida nao dependa da ordem de derivacao.
+     */
+    public static List<String> comentarios(C4Model modelo) {
+        List<String> linhas = new ArrayList<>();
+
+        List<Elemento> elementos = modelo.elementos().stream()
+                .sorted(Comparator.comparing(Elemento::id)).toList();
+        if (!elementos.isEmpty()) {
+            linhas.add(TITULO_CONTEINERES);
+            for (Elemento e : elementos) {
+                linhas.add("  " + e.id() + "  " + e.nome());
+            }
+        }
+
+        List<C4Model.DependenciaNaoIdentificada> deps = modelo.naoIdentificadas().stream()
+                .sorted(Comparator.comparing(C4Model.DependenciaNaoIdentificada::coordenada)).toList();
+        if (!deps.isEmpty()) {
+            linhas.add(TITULO_NAO_IDENTIFICADAS);
+            // Uma vez so: e igual para todas; o "para ignorar" muda com a coordenada.
+            linhas.add("  para incluir: add container | ext_... | Nome | Tecnologia | Descricao");
+            for (C4Model.DependenciaNaoIdentificada d : deps) {
+                linhas.add("  " + d.coordenada() + " (" + origem(d) + ")");
+                linhas.add("    para ignorar: remove dependency | " + d.coordenada());
+            }
+        }
+
+        // Incremento C: secoes 3 e 4, na ordem das linhas do catalogo.
+        List<C4Model.ItemDoCatalogo> removidos = porLinha(modelo.removidos());
+        if (!removidos.isEmpty()) {
+            linhas.add(TITULO_REMOVIDOS);
+            removidos.forEach(i -> linhas.add("  " + i.texto()));
+        }
+        List<C4Model.ItemDoCatalogo> ignoradas = porLinha(modelo.ignoradas());
+        if (!ignoradas.isEmpty()) {
+            linhas.add(TITULO_IGNORADAS);
+            ignoradas.forEach(i -> linhas.add("  linha " + i.linha() + ": " + i.texto()));
+        }
+        return linhas;
+    }
+
+    private static String origem(C4Model.DependenciaNaoIdentificada d) {
+        StringBuilder sb = new StringBuilder();
+        if (!d.modulos().isEmpty()) {
+            sb.append(d.modulos().size() == 1 ? "modulo " : "modulos ")
+                    .append(String.join(", ", d.modulos())).append("; ");
+        }
+        sb.append("categoria ").append(d.categoria());
+        if (d.regraGenerica() != null) {
+            sb.append(" pela regra generica ").append(d.regraGenerica());
+        }
         return sb.toString();
     }
 
@@ -103,6 +212,7 @@ public final class C4MermaidRenderer {
             case PESSOA -> e.id() + "([\"" + rotulo + "\"])";
             case BANCO -> e.id() + "[(\"" + rotulo + "\")]";
             case MENSAGERIA -> e.id() + "{{\"" + rotulo + "\"}}";
+            case INTERFACE -> e.id() + "(\"" + rotulo + "\")";
             case APLICACAO, SISTEMA_EXTERNO -> e.id() + "[\"" + rotulo + "\"]";
         };
     }
@@ -134,6 +244,11 @@ public final class C4MermaidRenderer {
         if (r.descricao() != null && !r.descricao().isBlank()) {
             sb.append(esc(r.descricao()));
         }
+        if (r.procedencia() == Procedencia.NAO_CONFIRMAVEL) {
+            sb.append(sb.length() > 0 ? MARCA_NAO_CONFIRMAVEL : MARCA_NAO_CONFIRMAVEL.trim());
+        } else if (r.procedencia() == Procedencia.DECLARADO) {
+            sb.append(sb.length() > 0 ? MARCA_DECLARADO : MARCA_DECLARADO.trim());
+        }
         if (r.tecnologia() != null && !r.tecnologia().isBlank()) {
             if (sb.length() > 0) {
                 sb.append("<br/>");
@@ -150,6 +265,7 @@ public final class C4MermaidRenderer {
         return switch (e.tipo()) {
             case PESSOA -> "pessoa";
             case APLICACAO -> "aplicacao";
+            case INTERFACE -> "interface";
             case BANCO -> "banco";
             case MENSAGERIA -> "mensageria";
             case SISTEMA_EXTERNO -> "externo";

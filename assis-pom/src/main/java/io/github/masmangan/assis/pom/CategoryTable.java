@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Tabela local de classificacao de dependencias Maven.
@@ -39,7 +40,18 @@ public final class CategoryTable implements CategoryResolver {
     /** Regra de casamento. Ao menos um criterio de grupo precisa estar presente. */
     private record Regra(String groupId, String groupIdPrefixo,
                          String artifactId, String artifactIdPrefixo,
-                         String categoria) {
+                         String categoria, boolean generica) {
+
+        /** Padrao legivel da regra, como "org.springframework*", usado nos avisos do C2. */
+        String padrao() {
+            StringBuilder sb = new StringBuilder(groupId != null ? groupId : groupIdPrefixo + "*");
+            if (artifactId != null) {
+                sb.append(':').append(artifactId);
+            } else if (artifactIdPrefixo != null) {
+                sb.append(':').append(artifactIdPrefixo).append('*');
+            }
+            return sb.toString();
+        }
 
         boolean casa(String gid, String aid) {
             if (groupId == null && groupIdPrefixo == null) {
@@ -141,7 +153,9 @@ public final class CategoryTable implements CategoryResolver {
                         texto(r, "groupIdPrefixo"),
                         texto(r, "artifactId"),
                         texto(r, "artifactIdPrefixo"),
-                        categoria));
+                        categoria,
+                        // opcional: ausente vale false, e o schemaVersion continua 1
+                        r.path("generica").asBoolean(false)));
             }
 
             return new CategoryTable(true, padrao, List.copyOf(regras), rotulos, cores);
@@ -180,6 +194,16 @@ public final class CategoryTable implements CategoryResolver {
             }
         }
         return padrao;
+    }
+
+    @Override
+    public Optional<String> regraGenericaDe(String groupId, String artifactId) {
+        for (Regra r : regras) {
+            if (r.casa(groupId, artifactId)) {
+                return r.generica() ? Optional.of(r.padrao()) : Optional.empty();
+            }
+        }
+        return Optional.empty();
     }
 
     @Override

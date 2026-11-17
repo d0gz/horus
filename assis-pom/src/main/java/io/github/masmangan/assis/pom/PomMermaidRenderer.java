@@ -43,16 +43,42 @@ public final class PomMermaidRenderer {
      * ser lida como residuo e nao como mais um grupo equivalente aos demais.
      */
     public static String render(PomView view, CategoryResolver tabela) {
+        return render(view, tabela, Map.of());
+    }
+
+    /**
+     * Variante com as dependencias removidas pelo catalogo (groupId:artifactId ->
+     * linha). Elas saem do desenho, mas ficam registradas no fim do arquivo: o
+     * diagrama completo e a visao fiel do pom, e nada some sem rastro (D39).
+     * Os nos mantem o indice da posicao no pom, para nao renumerar os demais.
+     */
+    public static String render(PomView view, CategoryResolver tabela, Map<String, Integer> removidas) {
         StringBuilder sb = new StringBuilder();
         sb.append("flowchart LR\n");
 
-        renderHeranca(sb, view);
+        renderHeranca(sb, view, removidas);
         renderModulos(sb, view);
         renderConfiguracao(sb, view);
         renderBuild(sb, view);
-        renderDependencias(sb, view, tabela);
+        renderDependencias(sb, view, tabela, removidas);
+        renderRemovidas(sb, view, removidas);
 
         return sb.toString();
+    }
+
+    private static void renderRemovidas(StringBuilder sb, PomView view, Map<String, Integer> removidas) {
+        List<String> linhas = view.dependencias().stream()
+                .map(PomView.DependenciaView::coordenada)
+                .filter(removidas::containsKey)
+                .distinct()
+                .sorted(java.util.Comparator.comparingInt(removidas::get))
+                .map(c -> "  dependencia " + c + " (linha " + removidas.get(c) + ")")
+                .toList();
+        if (linhas.isEmpty()) {
+            return;
+        }
+        sb.append('\n').append(IDENT).append("%% ").append(C4MermaidRenderer.TITULO_REMOVIDOS).append('\n');
+        linhas.forEach(l -> sb.append(IDENT).append("%% ").append(l).append('\n'));
     }
 
     /**
@@ -60,20 +86,22 @@ public final class PomMermaidRenderer {
      * dependencias tem a versao gerenciada por ele, tornando visivel no proprio
      * diagrama a informacao que o pom cru nao carrega.
      */
-    private static void renderHeranca(StringBuilder sb, PomView view) {
+    private static void renderHeranca(StringBuilder sb, PomView view, Map<String, Integer> removidas) {
         view.parent().ifPresent(parent ->
                 sb.append(IDENT).append("parent[\"").append(esc(parent.rotulo())).append("\"]\n"));
 
         sb.append(IDENT).append("project[\"").append(esc(view.projeto().rotulo())).append("\"]\n");
 
         if (view.parent().isPresent()) {
-            long gerenciadas = view.dependencias().stream()
+            List<PomView.DependenciaView> mantidas = view.dependencias().stream()
+                    .filter(d -> !removidas.containsKey(d.coordenada())).toList();
+            long gerenciadas = mantidas.stream()
                     .filter(PomView.DependenciaView::versaoGerenciada)
                     .count();
 
             sb.append(IDENT)
                     .append("parent -.->|gerencia ").append(gerenciadas)
-                    .append(" de ").append(view.dependencias().size())
+                    .append(" de ").append(mantidas.size())
                     .append(" versoes| project\n");
         }
     }
@@ -128,12 +156,12 @@ public final class PomMermaidRenderer {
      * preto e branco ou nao distingue cores continua conseguindo ler o grupo. A
      * cor acelera a leitura, o rotulo garante ela.
      */
-    private static void renderDependencias(StringBuilder sb, PomView view, CategoryResolver tabela) {
-        if (view.dependencias().isEmpty()) {
+    private static void renderDependencias(StringBuilder sb, PomView view, CategoryResolver tabela,
+                                           Map<String, Integer> removidas) {
+        Map<String, List<Integer>> porCategoria = agrupar(view, tabela, removidas);
+        if (porCategoria.isEmpty()) {
             return;
         }
-
-        Map<String, List<Integer>> porCategoria = agrupar(view, tabela);
 
         for (Map.Entry<String, List<Integer>> grupo : porCategoria.entrySet()) {
             sb.append('\n').append(IDENT)
@@ -150,6 +178,9 @@ public final class PomMermaidRenderer {
         sb.append('\n');
         for (int i = 0; i < view.dependencias().size(); i++) {
             PomView.DependenciaView d = view.dependencias().get(i);
+            if (removidas.containsKey(d.coordenada())) {
+                continue;
+            }
             if (PomView.ESCOPO_PADRAO.equals(d.escopo())) {
                 sb.append(IDENT).append("project --> dep").append(i).append('\n');
             } else {
@@ -178,10 +209,14 @@ public final class PomMermaidRenderer {
      * a saida estavel sem depender da ordem das regras na tabela. A categoria
      * residual e movida para o fim.
      */
-    private static Map<String, List<Integer>> agrupar(PomView view, CategoryResolver tabela) {
+    private static Map<String, List<Integer>> agrupar(PomView view, CategoryResolver tabela,
+                                                      Map<String, Integer> removidas) {
         Map<String, List<Integer>> porCategoria = new LinkedHashMap<>();
         for (int i = 0; i < view.dependencias().size(); i++) {
             PomView.DependenciaView d = view.dependencias().get(i);
+            if (removidas.containsKey(d.coordenada())) {
+                continue;
+            }
             String categoria = tabela.categoriaDe(d.groupId(), d.artifactId());
             porCategoria.computeIfAbsent(categoria, k -> new ArrayList<>()).add(i);
         }
